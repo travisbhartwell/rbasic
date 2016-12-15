@@ -165,13 +165,13 @@ fn is_valid_identifier(token_str: &str) -> bool {
     let mut v = token_str.chars();
     let c = v.next();
     match c {
-        Some(c) => (),
+        Some(c) => {
+            match c {
+                'a'...'z' | 'A'...'Z' => (),
+                _ => return false,
+            }
+        }
         None => return false,
-    }
-    let cc = c.unwrap();
-    match cc {
-        'a'...'z' | 'A'...'Z' => (),
-        _ => return false,
     }
     for c in v {
         match c {
