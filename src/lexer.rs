@@ -45,51 +45,115 @@ pub enum Token {
     Then,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
+pub struct TokenAndPos(u32, Token);
+
+#[derive(Debug, PartialEq)]
 pub struct LineOfCode {
     line_number: LineNumber,
-    tokens: Vec<Token>,
+    tokens: Vec<TokenAndPos>,
 }
 
 pub fn tokenize_line(line: &str) -> Result<LineOfCode, String> {
-    let words = line.split_whitespace();
+    let mut char_iter = line.chars().enumerate().peekable();
     let mut line_number = LineNumber(0);
-    let mut tokens: Vec<Token> = Vec::new();
+    let mut tokens: Vec<TokenAndPos> = Vec::new();
 
-    for (word_number, word) in words.enumerate() {
-        if word.chars().all(char::is_numeric) {
-            if word_number == 0 {
-                line_number = LineNumber(u32::from_str(word).unwrap())
+    while char_iter.peek() != None {
+        let cur = char_iter.next();
+
+        if cur.is_some() {
+            let (pos, ch) = cur.unwrap();
+
+            if pos == 0 {
+                if ch.is_numeric() {
+                    let mut num_chars: Vec<char> = char_iter.by_ref()
+                        .take_while(|&(_, x)| !x.is_whitespace())
+                        .map(|(_, x)| x)
+                        .collect();
+                    num_chars.insert(0, ch);
+                    let num_str: String = num_chars.into_iter().collect();
+
+                    match u32::from_str(num_str.as_str()) {
+                        Ok(number) => line_number = LineNumber(number),
+                        Err(_) => {
+                            return Err(format!("Line must start with number followed by \
+                                                whitespace:\n\t{}",
+                                               line))
+                        }
+                    };
+                } else {
+                    return Err(format!("Line must start with a line number:\n\t{}", line));
+                }
             } else {
-                tokens.push(Token::Number(i32::from_str(word).unwrap()))
-            }
-        } else {
-            if word_number == 0 {
-                return Err(format!("Line must start with a line number:\n\t{}", line));
-            }
+                if ch.is_whitespace() {
+                    // Skip whitespace
+                    continue;
+                }
 
-            match word {
-                // Match keywords
-                "GOTO" => tokens.push(Token::Goto),
-                "IF" => tokens.push(Token::If),
-                "INPUT" => tokens.push(Token::Input),
-                "LET" => tokens.push(Token::Let),
-                "PRINT" => tokens.push(Token::Print),
-                "REM" => tokens.push(Token::Rem),
-                "THEN" => tokens.push(Token::Then),
+                // At the beginning of a string
+                if ch == '"' {
+                    // TODO: Handle escaped quotes
+                    // TODO: Handle malformed string
+                    let mut str_chars: Vec<char> = char_iter.by_ref()
+                        .take_while(|&(_, x)| x != '"')
+                        .map(|(_, x)| x)
+                        .collect();
+                    str_chars.push('"');
+                    str_chars.insert(0, ch);
+                    let bstring: String = str_chars.into_iter().collect();
+                    tokens.push(TokenAndPos(pos as u32, Token::BString(bstring)))
+                } else {
 
-                // Operators
-                "=" => tokens.push(Token::Equals),
-                "<" => tokens.push(Token::LessThan),
-                ">" => tokens.push(Token::GreaterThan),
-                "<=" => tokens.push(Token::LessThanEqual),
-                ">=" => tokens.push(Token::GreaterThanEqual),
-                "<>" | "><" => tokens.push(Token::NotEqual),
-                "*" => tokens.push(Token::Multiply),
-                "/" => tokens.push(Token::Divide),
-                "-" => tokens.push(Token::Minus),
-                "+" => tokens.push(Token::Plus),
-                _ => return Err(format!("Unimplemented token:\t{}", word)),
+                    // Otherwise, next token is until next whitespace
+                    let mut token_chars: Vec<char> = char_iter.by_ref()
+                        .take_while(|&(_, x)| !x.is_whitespace())
+                        .map(|(_, x)| x)
+                        .collect();
+                    token_chars.insert(0, ch);
+                    let token_str: String = token_chars.into_iter().collect();
+
+                    if token_str.chars().all(char::is_numeric) {
+                        tokens.push(TokenAndPos(pos as u32,
+                                                Token::Number(i32::from_str(token_str.as_str())
+                                                    .unwrap())));
+                    } else {
+                        match token_str.as_str() {
+                            // Match keywords
+                            "GOTO" => tokens.push(TokenAndPos(pos as u32, Token::Goto)),
+                            "IF" => tokens.push(TokenAndPos(pos as u32, Token::If)),
+                            "INPUT" => tokens.push(TokenAndPos(pos as u32, Token::Input)),
+                            "LET" => tokens.push(TokenAndPos(pos as u32, Token::Let)),
+                            "PRINT" => tokens.push(TokenAndPos(pos as u32, Token::Print)),
+                            "REM" => {
+                                tokens.push(TokenAndPos(pos as u32, Token::Rem));
+                                // The rest of the line is a comment
+                                let comment_str: String =
+                                    char_iter.by_ref().map(|(_, x)| x).collect();
+                                tokens.push(TokenAndPos((pos + 4) as u32,
+                                                        Token::Comment(comment_str)))
+                            }
+                            "THEN" => tokens.push(TokenAndPos(pos as u32, Token::Then)),
+
+                            // Operators
+                            "=" => tokens.push(TokenAndPos(pos as u32, Token::Equals)),
+                            "<" => tokens.push(TokenAndPos(pos as u32, Token::LessThan)),
+                            ">" => tokens.push(TokenAndPos(pos as u32, Token::GreaterThan)),
+                            "<=" => tokens.push(TokenAndPos(pos as u32, Token::LessThanEqual)),
+                            ">=" => tokens.push(TokenAndPos(pos as u32, Token::GreaterThanEqual)),
+                            "<>" | "><" => tokens.push(TokenAndPos(pos as u32, Token::NotEqual)),
+                            "*" => tokens.push(TokenAndPos(pos as u32, Token::Multiply)),
+                            "/" => tokens.push(TokenAndPos(pos as u32, Token::Divide)),
+                            "-" => tokens.push(TokenAndPos(pos as u32, Token::Minus)),
+                            "+" => tokens.push(TokenAndPos(pos as u32, Token::Plus)),
+                            _ => {
+                                return Err(format!("Unimplemented token at {}:\t{}",
+                                                   pos,
+                                                   token_str))
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -108,23 +172,42 @@ mod tests {
     fn tokenize_line() {
         let line_of_code = lexer::tokenize_line("10 GOTO 100").unwrap();
         assert_eq!(lexer::LineNumber(10), line_of_code.line_number);
-        let tokens: Vec<lexer::Token> = vec![lexer::Token::Goto, lexer::Token::Number(100)];
+        let tokens: Vec<lexer::TokenAndPos> = vec![lexer::TokenAndPos(3, lexer::Token::Goto),
+                                                   lexer::TokenAndPos(8,
+                                                                      lexer::Token::Number(100))];
         assert_eq!(tokens, line_of_code.tokens)
     }
 
     #[test]
-    #[ignore]
+    fn tokenize_line_with_string() {
+        let line_of_code = lexer::tokenize_line("10 PRINT \"FOO BAR BAZ\"").unwrap();
+        assert_eq!(lexer::LineNumber(10), line_of_code.line_number);
+        let tokens: Vec<lexer::TokenAndPos> =
+            vec![lexer::TokenAndPos(3, lexer::Token::Print),
+                 lexer::TokenAndPos(9, lexer::Token::BString("\"FOO BAR BAZ\"".to_string()))];
+        assert_eq!(tokens, line_of_code.tokens)
+    }
+
+
+    #[test]
     fn tokenize_comment_line() {
         let line_of_code = lexer::tokenize_line("5  REM THIS IS A COMMENT 123").unwrap();
         assert_eq!(lexer::LineNumber(5), line_of_code.line_number);
-        let tokens: Vec<lexer::Token> =
-            vec![lexer::Token::Rem, lexer::Token::Comment("THIS IS A COMMENT 123".to_string())];
+        let tokens: Vec<lexer::TokenAndPos> = vec![lexer::TokenAndPos(3, lexer::Token::Rem),
+                 lexer::TokenAndPos(7,
+                                    lexer::Token::Comment("THIS IS A COMMENT 123".to_string()))];
         assert_eq!(tokens, line_of_code.tokens)
     }
 
     #[test]
-    fn tokenize_invalid_line() {
+    fn tokenize_no_line_number() {
         let line_of_code = lexer::tokenize_line("REM Invalid Line");
+        assert!(line_of_code.is_err());
+    }
+
+    #[test]
+    fn tokenize_bad_line_number() {
+        let line_of_code = lexer::tokenize_line("10B REM Invalid Line");
         assert!(line_of_code.is_err());
     }
 }
