@@ -142,6 +142,9 @@ pub fn tokenize_line(line: &str) -> Result<LineOfCode, String> {
                         "/" => tokens.push(TokenAndPos(pos, Token::Divide)),
                         "-" => tokens.push(TokenAndPos(pos, Token::Minus)),
                         "+" => tokens.push(TokenAndPos(pos, Token::Plus)),
+                        token_str if is_valid_identifier(token_str) => {
+                            tokens.push(TokenAndPos(pos, Token::Variable(token_str.to_string())))
+                        }
                         _ => return Err(format!("Unimplemented token at {}:\t{}", pos, token_str)),
                     }
                 }
@@ -155,50 +158,63 @@ pub fn tokenize_line(line: &str) -> Result<LineOfCode, String> {
     })
 }
 
+fn is_valid_identifier(token_str: &str) -> bool {
+    // Starts with [a-zA-Z_]
+    // Followed by any number of [a-zA-Z0-9_]
+    true
+}
+
 #[cfg(test)]
 mod tests {
-    use lexer;
-
-    #[test]
-    fn tokenize_line() {
-        let line_of_code = lexer::tokenize_line("10 GOTO 100").unwrap();
-        assert_eq!(lexer::LineNumber(10), line_of_code.line_number);
-        let tokens: Vec<lexer::TokenAndPos> = vec![lexer::TokenAndPos(3, lexer::Token::Goto),
-                                                   lexer::TokenAndPos(8,
-                                                                      lexer::Token::Number(100))];
-        assert_eq!(tokens, line_of_code.tokens)
-    }
-
-    #[test]
-    fn tokenize_line_with_string() {
-        let line_of_code = lexer::tokenize_line("10 PRINT \"FOO BAR BAZ\"").unwrap();
-        assert_eq!(lexer::LineNumber(10), line_of_code.line_number);
-        let tokens: Vec<lexer::TokenAndPos> =
-            vec![lexer::TokenAndPos(3, lexer::Token::Print),
-                 lexer::TokenAndPos(9, lexer::Token::BString("\"FOO BAR BAZ\"".to_string()))];
-        assert_eq!(tokens, line_of_code.tokens)
-    }
-
-
-    #[test]
-    fn tokenize_comment_line() {
-        let line_of_code = lexer::tokenize_line("5  REM THIS IS A COMMENT 123").unwrap();
-        assert_eq!(lexer::LineNumber(5), line_of_code.line_number);
-        let tokens: Vec<lexer::TokenAndPos> = vec![lexer::TokenAndPos(3, lexer::Token::Rem),
-                 lexer::TokenAndPos(7,
-                                    lexer::Token::Comment("THIS IS A COMMENT 123".to_string()))];
-        assert_eq!(tokens, line_of_code.tokens)
-    }
+    use lexer::*;
 
     #[test]
     fn tokenize_no_line_number() {
-        let line_of_code = lexer::tokenize_line("REM Invalid Line");
+        let line_of_code = tokenize_line("REM Invalid Line");
         assert!(line_of_code.is_err());
     }
 
     #[test]
     fn tokenize_bad_line_number() {
-        let line_of_code = lexer::tokenize_line("10B REM Invalid Line");
+        let line_of_code = tokenize_line("10B REM Invalid Line");
         assert!(line_of_code.is_err());
+    }
+
+    #[test]
+    fn tokenize_line_with_goto() {
+        let line_of_code = tokenize_line("10 GOTO 100").unwrap();
+        assert_eq!(LineNumber(10), line_of_code.line_number);
+        let tokens: Vec<TokenAndPos> = vec![TokenAndPos(3, Token::Goto),
+                                            TokenAndPos(8, Token::Number(100))];
+        assert_eq!(tokens, line_of_code.tokens)
+    }
+
+    #[test]
+    fn tokenize_line_with_string() {
+        let line_of_code = tokenize_line("10 PRINT \"FOO BAR BAZ\"").unwrap();
+        assert_eq!(LineNumber(10), line_of_code.line_number);
+        let tokens: Vec<TokenAndPos> =
+            vec![TokenAndPos(3, Token::Print),
+                 TokenAndPos(9, Token::BString("\"FOO BAR BAZ\"".to_string()))];
+        assert_eq!(tokens, line_of_code.tokens)
+    }
+
+    #[test]
+    fn tokenize_line_with_identifier() {
+        let line_of_code = tokenize_line("10 INPUT A").unwrap();
+        assert_eq!(LineNumber(10), line_of_code.line_number);
+        let tokens: Vec<TokenAndPos> = vec![TokenAndPos(3, Token::Input),
+                                            TokenAndPos(9, Token::Variable("A".to_string()))];
+        assert_eq!(tokens, line_of_code.tokens)
+    }
+
+    #[test]
+    fn tokenize_line_with_comment() {
+        let line_of_code = tokenize_line("5  REM THIS IS A COMMENT 123").unwrap();
+        assert_eq!(LineNumber(5), line_of_code.line_number);
+        let tokens: Vec<TokenAndPos> =
+            vec![TokenAndPos(3, Token::Rem),
+                 TokenAndPos(7, Token::Comment("THIS IS A COMMENT 123".to_string()))];
+        assert_eq!(tokens, line_of_code.tokens)
     }
 }
