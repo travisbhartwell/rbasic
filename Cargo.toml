@@ -1,0 +1,6 @@
+[package]
+name = "rbasic"
+version = "0.1.0"
+authors = ["Travis B. Hartwell <nafai@travishartwell.net>"]
+
+[dependencies]
