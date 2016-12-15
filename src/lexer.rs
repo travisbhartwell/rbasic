@@ -158,16 +158,33 @@ pub fn tokenize_line(line: &str) -> Result<LineOfCode, String> {
     })
 }
 
+#[allow(unused_variables)]
+// Starts with [a-zA-Z_]
+// Followed by any number of [a-zA-Z0-9_]
 fn is_valid_identifier(token_str: &str) -> bool {
-    // Starts with [a-zA-Z_]
-    // Followed by any number of [a-zA-Z0-9_]
+    let mut v = token_str.chars();
+    let c = v.next();
+    match c {
+        Some(c) => (),
+        None => return false,
+    }
+    let cc = c.unwrap();
+    match cc {
+        'a'...'z' | 'A'...'Z' => (),
+        _ => return false,
+    }
+    for c in v {
+        match c {
+            'a'...'z' | 'A'...'Z' | '0'...'9' | '_' => (),
+            _ => return false,
+        }
+    }
     true
 }
 
 #[cfg(test)]
 mod tests {
     use lexer::*;
-
     #[test]
     fn tokenize_no_line_number() {
         let line_of_code = tokenize_line("REM Invalid Line");
@@ -206,6 +223,12 @@ mod tests {
         let tokens: Vec<TokenAndPos> = vec![TokenAndPos(3, Token::Input),
                                             TokenAndPos(9, Token::Variable("A".to_string()))];
         assert_eq!(tokens, line_of_code.tokens)
+    }
+
+    #[test]
+    fn tokenize_line_with_bad_identifier() {
+        let line_of_code = tokenize_line("10 INPUT `A");
+        assert!(line_of_code.is_err());
     }
 
     #[test]
