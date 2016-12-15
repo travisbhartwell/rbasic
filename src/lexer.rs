@@ -60,99 +60,89 @@ pub fn tokenize_line(line: &str) -> Result<LineOfCode, String> {
     let mut tokens: Vec<TokenAndPos> = Vec::new();
 
     while char_iter.peek() != None {
-        let cur = char_iter.next();
+        let (pos, ch) = char_iter.next().unwrap();
+        let pos = pos as u32;
 
-        if cur.is_some() {
-            let (pos, ch) = cur.unwrap();
-            let pos = pos as u32;
+        if pos == 0 {
+            if ch.is_numeric() {
+                let mut num_chars: Vec<char> = char_iter.by_ref()
+                    .take_while(|&(_, x)| !x.is_whitespace())
+                    .map(|(_, x)| x)
+                    .collect();
+                num_chars.insert(0, ch);
+                let num_str: String = num_chars.into_iter().collect();
 
-            if pos == 0 {
-                if ch.is_numeric() {
-                    let mut num_chars: Vec<char> = char_iter.by_ref()
-                        .take_while(|&(_, x)| !x.is_whitespace())
-                        .map(|(_, x)| x)
-                        .collect();
-                    num_chars.insert(0, ch);
-                    let num_str: String = num_chars.into_iter().collect();
-
-                    match u32::from_str(num_str.as_str()) {
-                        Ok(number) => line_number = LineNumber(number),
-                        Err(_) => {
-                            return Err(format!("Line must start with number followed by \
-                                                whitespace:\n\t{}",
-                                               line))
-                        }
-                    };
-                } else {
-                    return Err(format!("Line must start with a line number:\n\t{}", line));
-                }
+                match u32::from_str(num_str.as_str()) {
+                    Ok(number) => line_number = LineNumber(number),
+                    Err(_) => {
+                        return Err(format!("Line must start with number followed by \
+                                            whitespace:\n\t{}",
+                                           line))
+                    }
+                };
             } else {
-                if ch.is_whitespace() {
-                    // Skip whitespace
-                    continue;
-                }
+                return Err(format!("Line must start with a line number:\n\t{}", line));
+            }
+        } else {
+            if ch.is_whitespace() {
+                // Skip whitespace
+                continue;
+            }
 
-                // At the beginning of a string
-                if ch == '"' {
-                    // TODO: Handle escaped quotes
-                    // TODO: Handle malformed string
-                    let mut str_chars: Vec<char> = char_iter.by_ref()
-                        .take_while(|&(_, x)| x != '"')
-                        .map(|(_, x)| x)
-                        .collect();
-                    str_chars.push('"');
-                    str_chars.insert(0, ch);
-                    let bstring: String = str_chars.into_iter().collect();
-                    tokens.push(TokenAndPos(pos, Token::BString(bstring)))
+            // At the beginning of a string
+            if ch == '"' {
+                // TODO: Handle escaped quotes
+                // TODO: Handle malformed string
+                let mut str_chars: Vec<char> = char_iter.by_ref()
+                    .take_while(|&(_, x)| x != '"')
+                    .map(|(_, x)| x)
+                    .collect();
+                str_chars.push('"');
+                str_chars.insert(0, ch);
+                let bstring: String = str_chars.into_iter().collect();
+                tokens.push(TokenAndPos(pos, Token::BString(bstring)))
+            } else {
+
+                // Otherwise, next token is until next whitespace
+                let mut token_chars: Vec<char> = char_iter.by_ref()
+                    .take_while(|&(_, x)| !x.is_whitespace())
+                    .map(|(_, x)| x)
+                    .collect();
+                token_chars.insert(0, ch);
+                let token_str: String = token_chars.into_iter().collect();
+
+                if token_str.chars().all(char::is_numeric) {
+                    tokens.push(TokenAndPos(pos,
+                                            Token::Number(i32::from_str(token_str.as_str())
+                                                .unwrap())));
                 } else {
-
-                    // Otherwise, next token is until next whitespace
-                    let mut token_chars: Vec<char> = char_iter.by_ref()
-                        .take_while(|&(_, x)| !x.is_whitespace())
-                        .map(|(_, x)| x)
-                        .collect();
-                    token_chars.insert(0, ch);
-                    let token_str: String = token_chars.into_iter().collect();
-
-                    if token_str.chars().all(char::is_numeric) {
-                        tokens.push(TokenAndPos(pos,
-                                                Token::Number(i32::from_str(token_str.as_str())
-                                                    .unwrap())));
-                    } else {
-                        match token_str.as_str() {
-                            // Match keywords
-                            "GOTO" => tokens.push(TokenAndPos(pos, Token::Goto)),
-                            "IF" => tokens.push(TokenAndPos(pos, Token::If)),
-                            "INPUT" => tokens.push(TokenAndPos(pos, Token::Input)),
-                            "LET" => tokens.push(TokenAndPos(pos, Token::Let)),
-                            "PRINT" => tokens.push(TokenAndPos(pos, Token::Print)),
-                            "REM" => {
-                                tokens.push(TokenAndPos(pos, Token::Rem));
-                                // The rest of the line is a comment
-                                let comment_str: String =
-                                    char_iter.by_ref().map(|(_, x)| x).collect();
-                                tokens.push(TokenAndPos((pos + 4) as u32,
-                                                        Token::Comment(comment_str)))
-                            }
-                            "THEN" => tokens.push(TokenAndPos(pos, Token::Then)),
-
-                            // Operators
-                            "=" => tokens.push(TokenAndPos(pos, Token::Equals)),
-                            "<" => tokens.push(TokenAndPos(pos, Token::LessThan)),
-                            ">" => tokens.push(TokenAndPos(pos, Token::GreaterThan)),
-                            "<=" => tokens.push(TokenAndPos(pos, Token::LessThanEqual)),
-                            ">=" => tokens.push(TokenAndPos(pos, Token::GreaterThanEqual)),
-                            "<>" | "><" => tokens.push(TokenAndPos(pos, Token::NotEqual)),
-                            "*" => tokens.push(TokenAndPos(pos, Token::Multiply)),
-                            "/" => tokens.push(TokenAndPos(pos, Token::Divide)),
-                            "-" => tokens.push(TokenAndPos(pos, Token::Minus)),
-                            "+" => tokens.push(TokenAndPos(pos, Token::Plus)),
-                            _ => {
-                                return Err(format!("Unimplemented token at {}:\t{}",
-                                                   pos,
-                                                   token_str))
-                            }
+                    match token_str.as_str() {
+                        // Match keywords
+                        "GOTO" => tokens.push(TokenAndPos(pos, Token::Goto)),
+                        "IF" => tokens.push(TokenAndPos(pos, Token::If)),
+                        "INPUT" => tokens.push(TokenAndPos(pos, Token::Input)),
+                        "LET" => tokens.push(TokenAndPos(pos, Token::Let)),
+                        "PRINT" => tokens.push(TokenAndPos(pos, Token::Print)),
+                        "REM" => {
+                            tokens.push(TokenAndPos(pos, Token::Rem));
+                            // The rest of the line is a comment
+                            let comment_str: String = char_iter.by_ref().map(|(_, x)| x).collect();
+                            tokens.push(TokenAndPos((pos + 4) as u32, Token::Comment(comment_str)))
                         }
+                        "THEN" => tokens.push(TokenAndPos(pos, Token::Then)),
+
+                        // Operators
+                        "=" => tokens.push(TokenAndPos(pos, Token::Equals)),
+                        "<" => tokens.push(TokenAndPos(pos, Token::LessThan)),
+                        ">" => tokens.push(TokenAndPos(pos, Token::GreaterThan)),
+                        "<=" => tokens.push(TokenAndPos(pos, Token::LessThanEqual)),
+                        ">=" => tokens.push(TokenAndPos(pos, Token::GreaterThanEqual)),
+                        "<>" | "><" => tokens.push(TokenAndPos(pos, Token::NotEqual)),
+                        "*" => tokens.push(TokenAndPos(pos, Token::Multiply)),
+                        "/" => tokens.push(TokenAndPos(pos, Token::Divide)),
+                        "-" => tokens.push(TokenAndPos(pos, Token::Minus)),
+                        "+" => tokens.push(TokenAndPos(pos, Token::Plus)),
+                        _ => return Err(format!("Unimplemented token at {}:\t{}", pos, token_str)),
                     }
                 }
             }
