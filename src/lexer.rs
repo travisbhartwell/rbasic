@@ -158,7 +158,6 @@ pub fn tokenize_line(line: &str) -> Result<LineOfCode, String> {
     })
 }
 
-#[allow(unused_variables)]
 // Starts with [a-zA-Z_]
 // Followed by any number of [a-zA-Z0-9_]
 fn is_valid_identifier(token_str: &str) -> bool {
