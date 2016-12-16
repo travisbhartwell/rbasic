@@ -10,4 +10,4 @@
 70  GOTO 40 
 75  REM prints the result
 80  PRINT B
-90  GOTO B
+90  GOTO 100

@@ -131,6 +131,8 @@ pub fn tokenize_line(line: &str) -> Result<LineOfCode, String> {
                         "/" => tokens.push(TokenAndPos(pos, Token::Divide)),
                         "-" => tokens.push(TokenAndPos(pos, Token::Minus)),
                         "+" => tokens.push(TokenAndPos(pos, Token::Plus)),
+
+                        // Identifiers
                         token_str if is_valid_identifier(token_str) => {
                             tokens.push(TokenAndPos(pos, Token::Variable(token_str.to_string())))
                         }
