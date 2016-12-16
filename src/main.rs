@@ -13,8 +13,16 @@ fn read_file(path: &str) -> Result<String, std::io::Error> {
 fn main() {
     match read_file("test.bas") {
         Ok(s) => {
-            for x in s.lines() {
-                println!("Lines: {}", x);
+            for (lineno, line) in s.lines().enumerate() {
+                let result = lexer::tokenize_line(line);
+                match result {
+                    Ok(x) => {
+                        println!("{}", line);
+                        println!("Line Number: {:?}", x.line_number);
+                        println!("Tokens: {:?}", x.tokens)
+                    }
+                    Err(e) => println!("Error at line {}: {}", lineno, e),
+                }
             }
         }
         Err(err) => println!("Getting file contents failed with error: {}", err),

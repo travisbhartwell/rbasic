@@ -50,8 +50,8 @@ pub struct TokenAndPos(u32, Token);
 
 #[derive(Debug, PartialEq)]
 pub struct LineOfCode {
-    line_number: LineNumber,
-    tokens: Vec<TokenAndPos>,
+    pub line_number: LineNumber,
+    pub tokens: Vec<TokenAndPos>,
 }
 
 pub fn tokenize_line(line: &str) -> Result<LineOfCode, String> {
