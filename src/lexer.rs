@@ -1,18 +1,7 @@
-// 5  REM inputting the argument
-// 10  PRINT " factorial of:"
-// 20  INPUT A
-// 30  LET B = 1
-// 35  REM beginning of the loop
-// 40  IF A <= 1 THEN 80
-// 50  LET B = B * A
-// 60  LET A = A - 1
-// 70  GOTO 40
-// 75  REM prints the result
-// 80  PRINT B
 use std::str::FromStr;
 
-#[derive(Debug, PartialEq)]
-pub struct LineNumber(u32);
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct LineNumber(pub u32);
 
 #[derive(Debug, PartialEq)]
 pub enum Token {
@@ -46,7 +35,7 @@ pub enum Token {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct TokenAndPos(u32, Token);
+pub struct TokenAndPos(pub u32, pub Token);
 
 #[derive(Debug, PartialEq)]
 pub struct LineOfCode {

@@ -1,7 +1,8 @@
 use std::io::Read;
 use std::fs::File;
 
-mod lexer;
+pub mod lexer;
+pub mod evaluator;
 
 fn read_file(path: &str) -> Result<String, std::io::Error> {
     let mut f = File::open(path)?;
@@ -13,17 +14,26 @@ fn read_file(path: &str) -> Result<String, std::io::Error> {
 fn main() {
     match read_file("test.bas") {
         Ok(s) => {
+            let mut code_lines: Vec<lexer::LineOfCode> = Vec::new();
+
             for (lineno, line) in s.lines().enumerate() {
                 let result = lexer::tokenize_line(line);
                 match result {
                     Ok(x) => {
-                        println!("{}", line);
-                        println!("Line Number: {:?}", x.line_number);
-                        println!("Tokens: {:?}", x.tokens)
+                        // println!("{}", line);
+                        // println!("Line Number: {:?}", x.line_number);
+                        // println!("Tokens: {:?}", x.tokens);
+                        code_lines.push(x)
                     }
                     Err(e) => println!("Error at line {}: {}", lineno, e),
                 }
             }
+
+            match evaluator::evaluate(code_lines) {
+                Ok(msg) => println!("{}", msg),
+                Err(msg) => println!("Execution failed: {}", msg),
+            }
+
         }
         Err(err) => println!("Getting file contents failed with error: {}", err),
     };
