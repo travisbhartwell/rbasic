@@ -51,6 +51,10 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
                         }
                     }
                 }
+                lexer::Token::Rem => {
+                    // Skip the rest of the line
+                    break;
+                }
                 _ => println!("At {}:{}, {:?}", line_index, pos, token),
             }
         }
