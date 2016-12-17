@@ -1,5 +1,4 @@
 5  REM inputting the argument
-7  GOTO 80
 10  PRINT " factorial of:"
 20  INPUT A
 30  LET B = 1 
@@ -10,4 +9,3 @@
 70  GOTO 40 
 75  REM prints the result
 80  PRINT B
-90  GOTO 100
