@@ -185,7 +185,7 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
     Ok("Completed Successfully".to_string())
 }
 
-fn parse_and_eval_expression<'a>(token_iter: &mut Iter<'a, lexer::TokenAndPos>,
+fn parse_and_eval_expression<'a>(mut token_iter: &mut Iter<'a, lexer::TokenAndPos>,
                                  context: &RBasicContext)
                                  -> Result<RBasicValue, String> {
     let mut result: RBasicValue = RBasicValue::String(String::new());
@@ -207,6 +207,29 @@ fn parse_and_eval_expression<'a>(token_iter: &mut Iter<'a, lexer::TokenAndPos>,
         Some(&lexer::TokenAndPos(_, lexer::Token::BString(ref string))) => {
             result = RBasicValue::String(string.clone());
         }
+        // Unary Minus
+        Some(&lexer::TokenAndPos(pos, lexer::Token::Minus)) => {
+            match parse_and_eval_expression(&mut token_iter, &context) {
+                Ok(RBasicValue::Number(number)) => {
+                    result = RBasicValue::Number(-number);
+                }
+                Ok(_) => return Err(format!("At {}, can only negate numerical values", pos)),
+                Err(e) => return Err(e),
+            }
+        }
+        // Unary Not
+        Some(&lexer::TokenAndPos(pos, lexer::Token::Bang)) => {
+            match parse_and_eval_expression(&mut token_iter, &context) {
+                Ok(RBasicValue::Bool(value)) => {
+                    result = RBasicValue::Bool(!value);
+                }
+                Ok(_) => {
+                    return Err(format!("At {}, boolean not only works against boolean values", pos))
+                }
+                Err(e) => return Err(e),
+            }
+        }
+
         None => {
             // Empty Expression
         }
