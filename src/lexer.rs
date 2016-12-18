@@ -91,6 +91,12 @@ pub fn tokenize_line(line: &str) -> Result<LineOfCode, String> {
                     .collect();
                 let bstring: String = str_chars.into_iter().collect();
                 tokens.push(TokenAndPos(pos, Token::BString(bstring)))
+            } else if ch == '-' {
+                // Unary operators aren't necessarily separated by whitespace
+                tokens.push(TokenAndPos(pos, Token::Minus))
+            } else if ch == '!' {
+                // Unary operators aren't necessarily separated by whitespace
+                tokens.push(TokenAndPos(pos, Token::Bang))
             } else {
                 // Otherwise, next token is until next whitespace
                 let mut token_chars: Vec<char> = char_iter.by_ref()
