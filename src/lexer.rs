@@ -92,7 +92,6 @@ pub fn tokenize_line(line: &str) -> Result<LineOfCode, String> {
                 let bstring: String = str_chars.into_iter().collect();
                 tokens.push(TokenAndPos(pos, Token::BString(bstring)))
             } else {
-
                 // Otherwise, next token is until next whitespace
                 let mut token_chars: Vec<char> = char_iter.by_ref()
                     .take_while(|&(_, x)| !x.is_whitespace())
@@ -101,7 +100,7 @@ pub fn tokenize_line(line: &str) -> Result<LineOfCode, String> {
                 token_chars.insert(0, ch);
                 let token_str: String = token_chars.into_iter().collect();
 
-                if token_str.chars().all(char::is_numeric) {
+                if i32::from_str(token_str.as_str()).is_ok() {
                     tokens.push(TokenAndPos(pos,
                                             Token::Number(i32::from_str(token_str.as_str())
                                                 .unwrap())));
