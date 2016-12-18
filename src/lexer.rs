@@ -23,6 +23,9 @@ pub enum Token {
     Divide,
     Minus,
     Plus,
+    LParen,
+    RParen,
+    Bang,
 
     // Keywords
     Goto,
@@ -82,12 +85,10 @@ pub fn tokenize_line(line: &str) -> Result<LineOfCode, String> {
             if ch == '"' {
                 // TODO: Handle escaped quotes
                 // TODO: Handle malformed string
-                let mut str_chars: Vec<char> = char_iter.by_ref()
+                let str_chars: Vec<char> = char_iter.by_ref()
                     .take_while(|&(_, x)| x != '"')
                     .map(|(_, x)| x)
                     .collect();
-                str_chars.push('"');
-                str_chars.insert(0, ch);
                 let bstring: String = str_chars.into_iter().collect();
                 tokens.push(TokenAndPos(pos, Token::BString(bstring)))
             } else {
@@ -131,6 +132,9 @@ pub fn tokenize_line(line: &str) -> Result<LineOfCode, String> {
                         "/" => tokens.push(TokenAndPos(pos, Token::Divide)),
                         "-" => tokens.push(TokenAndPos(pos, Token::Minus)),
                         "+" => tokens.push(TokenAndPos(pos, Token::Plus)),
+                        "(" => tokens.push(TokenAndPos(pos, Token::LParen)),
+                        ")" => tokens.push(TokenAndPos(pos, Token::RParen)),
+                        "!" => tokens.push(TokenAndPos(pos, Token::Bang)),
 
                         // Identifiers
                         token_str if is_valid_identifier(token_str) => {

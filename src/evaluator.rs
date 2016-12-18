@@ -2,17 +2,19 @@ use lexer;
 
 use std::collections::BTreeMap;
 use std::collections::HashMap;
+use std::slice::Iter;
 use std::io;
 
-#[derive(Debug)]
-enum VariableValue {
+#[derive(Debug,Clone)]
+enum RBasicValue {
     String(String),
     Number(i32),
+    Bool(bool),
 }
 
 #[derive(Debug)]
 struct RBasicContext {
-    variables: HashMap<String, VariableValue>,
+    variables: HashMap<String, RBasicValue>,
 }
 
 impl RBasicContext {
@@ -42,7 +44,7 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
         let tokens = &lineno_to_code[line_number];
         let mut token_iter = tokens.iter();
 
-        println!("Looking at line: {:?}", line_number);
+        // println!("Looking at line: {:?}", line_number);
         if !tokens.is_empty() {
             let lexer::TokenAndPos(pos, ref token) = *token_iter.next().unwrap();
             // Set default value
@@ -80,11 +82,54 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
                 lexer::Token::Let => {
                     // Expected Next:
                     // Variable Equals EXPRESSION
+                    match token_iter.next() {
+                        Some(&lexer::TokenAndPos(_, lexer::Token::Variable(ref variable))) => {
+                            match token_iter.next() {
+                                Some(&lexer::TokenAndPos(_, lexer::Token::Equals)) => {
+                                    match parse_and_eval_expression(&mut token_iter, &context) {
+                                        Ok(value) => {
+                                            context.variables
+                                                .entry(variable.clone().to_string())
+                                                .or_insert(value);
+                                        }
+                                        Err(e) => {
+                                            return Err(format!("At {:?}, {} invalid syntax for \
+                                                                LET.",
+                                                               line_number,
+                                                               pos));
+                                        }
+                                    }
+                                }
+                                _ => {
+                                    return Err(format!("At {:?}, {} invalid syntax for LET.",
+                                                       line_number,
+                                                       pos));
+                                }
+
+                            }
+                        }
+                        _ => {
+                            return Err(format!("At {:?}, {} invalid syntax for LET.",
+                                               line_number,
+                                               pos));
+                        }
+                    }
                 }
 
                 lexer::Token::Print => {
                     // Expected Next:
                     // EXPRESSION
+                    match parse_and_eval_expression(&mut token_iter, &context) {
+                        Ok(RBasicValue::String(value)) => println!("{}", value),
+                        Ok(RBasicValue::Number(value)) => println!("{}", value),
+                        Ok(RBasicValue::Bool(value)) => println!("{}", value),
+                        Err(err) => {
+                            return Err(format!("At {:?}. {} PRINT must be followed by valid \
+                                                expression",
+                                               line_number,
+                                               pos))
+                        }
+                    }
                 }
 
                 lexer::Token::Input => {
@@ -95,12 +140,14 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
                             io::stdin()
                                 .read_line(&mut input)
                                 .expect("failed to read line");
+                            input = input.trim().to_string();
+                            let value = RBasicValue::String(input);
 
                             // Store the string now, can coerce to number later if needed
                             // Can overwrite an existing value
                             context.variables
                                 .entry(variable.clone().to_string())
-                                .or_insert(VariableValue::String(input.trim().to_string()));
+                                .or_insert(value);
                         }
 
                         _ => {
@@ -115,6 +162,7 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
                 lexer::Token::If => {
                     // Expected Next:
                     // EXPRESSION Then Number
+                    // Where Number is a Line Number
                 }
 
                 _ => {
@@ -124,7 +172,7 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
         }
 
         // At end of execution, show context:
-        println!("Current context: {:?}", context);
+        // println!("Current context: {:?}", context);
 
         if !line_has_goto {
             line_index += 1;
@@ -135,4 +183,37 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
     }
 
     Ok("Completed Successfully".to_string())
+}
+
+fn parse_and_eval_expression<'a>(token_iter: &mut Iter<'a, lexer::TokenAndPos>,
+                                 context: &RBasicContext)
+                                 -> Result<RBasicValue, String> {
+    let mut result: RBasicValue = RBasicValue::String(String::new());
+
+    match token_iter.next() {
+        Some(&lexer::TokenAndPos(_, lexer::Token::Number(number))) => {
+            result = RBasicValue::Number(number);
+        }
+        Some(&lexer::TokenAndPos(pos, lexer::Token::Variable(ref variable))) => {
+            match context.variables.get(variable) {
+                Some(value) => result = value.clone(),
+                None => {
+                    return Err(format!("At {}, invalid variable reference in expression: {}",
+                                       pos,
+                                       variable))
+                }
+            }
+        }
+        Some(&lexer::TokenAndPos(_, lexer::Token::BString(ref string))) => {
+            result = RBasicValue::String(string.clone());
+        }
+        None => {
+            // Empty Expression
+        }
+
+        _ => println!("Unimplemented!"),
+    }
+
+
+    Ok(result)
 }
