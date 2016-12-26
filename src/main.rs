@@ -1,3 +1,5 @@
+extern crate itertools;
+
 use std::io::Read;
 use std::fs::File;
 
