@@ -5,6 +5,7 @@ use std::fs::File;
 
 pub mod lexer;
 pub mod evaluator;
+pub mod token;
 
 fn read_file(path: &str) -> Result<String, std::io::Error> {
     let mut f = File::open(path)?;

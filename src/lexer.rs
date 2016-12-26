@@ -1,3 +1,5 @@
+use token;
+
 extern crate itertools;
 use itertools::Itertools;
 
@@ -7,102 +9,7 @@ use std::str::FromStr;
 pub struct LineNumber(pub u32);
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Token {
-    Comment(String),
-
-    // Variables and Literals
-    Variable(String),
-    Number(i32),
-    BString(String),
-
-    // Binary Operators
-    Equals,
-    LessThan,
-    GreaterThan,
-    LessThanEqual,
-    GreaterThanEqual,
-    NotEqual,
-    Multiply,
-    Divide,
-    Minus,
-    Plus,
-
-    // Parens
-    LParen,
-    RParen,
-
-    // Unary Operators
-    Bang,
-    UMinus,
-
-    // Keywords
-    Goto,
-    If,
-    Input,
-    Let,
-    Print,
-    Rem,
-    Then,
-}
-
-impl Token {
-    pub fn token_for_string(token_str: &str) -> Option<Token> {
-        match token_str {
-            "=" => Some(Token::Equals),
-            "<" => Some(Token::LessThan),
-            ">" => Some(Token::GreaterThan),
-            "<=" => Some(Token::LessThanEqual),
-            ">=" => Some(Token::GreaterThanEqual),
-            "<>" => Some(Token::NotEqual),
-            "*" => Some(Token::Multiply),
-            "/" => Some(Token::Divide),
-            // Yes, this is also Token::UMinus
-            "-" => Some(Token::Minus),
-            "+" => Some(Token::Plus),
-            "(" => Some(Token::LParen),
-            ")" => Some(Token::RParen),
-            "!" => Some(Token::Bang),
-            "GOTO" => Some(Token::Goto),
-            "IF" => Some(Token::If),
-            "INPUT" => Some(Token::Input),
-            "LET" => Some(Token::Let),
-            "PRINT" => Some(Token::Print),
-            "REM" => Some(Token::Rem),
-            "THEN" => Some(Token::Then),
-            _ => None,
-        }
-    }
-
-    pub fn is_operator(&self) -> bool {
-        match *self {
-            Token::Equals | Token::LessThan | Token::GreaterThan | Token::LessThanEqual |
-            Token::NotEqual | Token::Multiply | Token::Divide | Token::Minus | Token::Plus => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_value(&self) -> bool {
-        match *self {
-            Token::Variable(_) |
-            Token::Number(_) |
-            Token::BString(_) => true,
-            _ => false,
-        }
-    }
-
-    pub fn operator_precedence(&self) -> Result<u8, String> {
-        match *self {
-            Token::Multiply | Token::Divide => Ok(10),
-            Token::Minus | Token::Plus => Ok(8),
-            Token::Equals | Token::LessThan | Token::GreaterThan | Token::LessThanEqual |
-            Token::NotEqual => Ok(4),
-            _ => Err("Not an operator".to_string()),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct TokenAndPos(pub u32, pub Token);
+pub struct TokenAndPos(pub u32, pub token::Token);
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct LineOfCode {
@@ -154,20 +61,20 @@ pub fn tokenize_line(line: &str) -> Result<LineOfCode, String> {
                     .map(|(_, x)| x)
                     .collect();
                 let bstring: String = str_chars.into_iter().collect();
-                tokens.push(TokenAndPos(pos, Token::BString(bstring)))
+                tokens.push(TokenAndPos(pos, token::Token::BString(bstring)))
             } else if ch == '-' {
                 if !tokens.is_empty() && tokens.last().unwrap().1.is_value() {
-                    tokens.push(TokenAndPos(pos, Token::Minus))
+                    tokens.push(TokenAndPos(pos, token::Token::Minus))
                 } else {
-                    tokens.push(TokenAndPos(pos, Token::UMinus))
+                    tokens.push(TokenAndPos(pos, token::Token::UMinus))
                 }
             } else if ch == '!' {
                 // Unary operators aren't necessarily separated by whitespace
-                tokens.push(TokenAndPos(pos, Token::Bang))
+                tokens.push(TokenAndPos(pos, token::Token::Bang))
             } else if ch == '(' {
-                tokens.push(TokenAndPos(pos, Token::LParen))
+                tokens.push(TokenAndPos(pos, token::Token::LParen))
             } else if ch == ')' {
-                tokens.push(TokenAndPos(pos, Token::RParen))
+                tokens.push(TokenAndPos(pos, token::Token::RParen))
             } else {
                 // Otherwise, next token is until next whitespace
                 let mut token_chars: Vec<char> = char_iter.by_ref()
@@ -179,32 +86,38 @@ pub fn tokenize_line(line: &str) -> Result<LineOfCode, String> {
 
                 if i32::from_str(token_str.as_str()).is_ok() {
                     tokens.push(TokenAndPos(pos,
-                                            Token::Number(i32::from_str(token_str.as_str())
-                                                .unwrap())));
+                                          token::Token::Number(i32::from_str(token_str.as_str())
+                                              .unwrap())));
                 } else {
-                    let token = Token::token_for_string(token_str.as_str());
+                    let token = token::Token::token_for_string(token_str.as_str());
 
                     match token {
-                        None =>  {
+                        None => {
                             if is_valid_identifier(&token_str) {
-                                tokens.push(TokenAndPos(pos, Token::Variable(token_str.to_string())))
+                                tokens
+                                    .push(TokenAndPos(pos,
+                                                      token::Token::Variable(token_str
+                                                                             .to_string())))
                             } else {
-                                return Err(format!("Unimplemented token at {}:\t{}", pos, token_str))
+                                return Err(format!("Unimplemented token at {}:\t{}",
+                                                   pos,
+                                                   token_str));
                             }
                         }
-                        Some(Token::Rem) => {
-                            tokens.push(TokenAndPos(pos, Token::Rem));
+                        Some(token::Token::Rem) => {
+                            tokens.push(TokenAndPos(pos, token::Token::Rem));
                             // Skip the space after REM
                             char_iter.next();
                             // The rest of the line is a comment
                             let comment_str: String = char_iter.by_ref().map(|(_, x)| x).collect();
-                            tokens.push(TokenAndPos((pos + 4) as u32, Token::Comment(comment_str)))
+                            tokens.push(TokenAndPos((pos + 4) as u32,
+                                                    token::Token::Comment(comment_str)))
                         }
 
                         Some(token) => {
                             tokens.push(TokenAndPos(pos, token));
                         }
-                   }
+                    }
                 }
             }
         }
@@ -242,6 +155,8 @@ fn is_valid_identifier(token_str: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use lexer::*;
+    use token::*;
+
     #[test]
     fn tokenize_no_line_number() {
         let line_of_code = tokenize_line("REM Invalid Line");
@@ -258,8 +173,8 @@ mod tests {
     fn tokenize_line_with_goto() {
         let line_of_code = tokenize_line("10 GOTO 100").unwrap();
         assert_eq!(LineNumber(10), line_of_code.line_number);
-        let tokens: Vec<TokenAndPos> = vec![TokenAndPos(3, Token::Goto),
-                                            TokenAndPos(8, Token::Number(100))];
+        let tokens: Vec<TokenAndPos> = vec![TokenAndPos(3, token::Token::Goto),
+                                            TokenAndPos(8, token::Token::Number(100))];
         assert_eq!(tokens, line_of_code.tokens)
     }
 
@@ -268,8 +183,8 @@ mod tests {
         let line_of_code = tokenize_line("10 PRINT \"FOO BAR BAZ\"").unwrap();
         assert_eq!(LineNumber(10), line_of_code.line_number);
         let tokens: Vec<TokenAndPos> =
-            vec![TokenAndPos(3, Token::Print),
-                 TokenAndPos(9, Token::BString("FOO BAR BAZ".to_string()))];
+            vec![TokenAndPos(3, token::Token::Print),
+                 TokenAndPos(9, token::Token::BString("FOO BAR BAZ".to_string()))];
         assert_eq!(tokens, line_of_code.tokens)
     }
 
@@ -277,8 +192,9 @@ mod tests {
     fn tokenize_line_with_identifier() {
         let line_of_code = tokenize_line("10 INPUT A").unwrap();
         assert_eq!(LineNumber(10), line_of_code.line_number);
-        let tokens: Vec<TokenAndPos> = vec![TokenAndPos(3, Token::Input),
-                                            TokenAndPos(9, Token::Variable("A".to_string()))];
+        let tokens: Vec<TokenAndPos> = vec![TokenAndPos(3, token::Token::Input),
+                                            TokenAndPos(9,
+                                                        token::Token::Variable("A".to_string()))];
         assert_eq!(tokens, line_of_code.tokens)
     }
 
@@ -293,8 +209,9 @@ mod tests {
         let line_of_code = tokenize_line("5  REM THIS IS A COMMENT 123").unwrap();
         assert_eq!(LineNumber(5), line_of_code.line_number);
         let tokens: Vec<TokenAndPos> =
-            vec![TokenAndPos(3, Token::Rem),
-                 TokenAndPos(7, Token::Comment("THIS IS A COMMENT 123".to_string()))];
+            vec![TokenAndPos(3, token::Token::Rem),
+                 TokenAndPos(7,
+                             token::Token::Comment("THIS IS A COMMENT 123".to_string()))];
         assert_eq!(tokens, line_of_code.tokens)
     }
 }

@@ -1,4 +1,5 @@
 use lexer;
+use token;
 
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -51,14 +52,14 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
             line_has_goto = false;
 
             match *token {
-                lexer::Token::Rem => {
+                token::Token::Rem => {
                     // Skip the rest of the line so do nothing
                 }
 
-                lexer::Token::Goto => {
+                token::Token::Goto => {
                     line_has_goto = true;
                     match token_iter.next() {
-                        Some(&lexer::TokenAndPos(pos, lexer::Token::Number(number))) => {
+                        Some(&lexer::TokenAndPos(pos, token::Token::Number(number))) => {
                             let n = lexer::LineNumber(number as u32);
                             match line_map.get(&n) {
                                 Some(index) => line_index = *index,
@@ -79,13 +80,13 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
                     }
                 }
 
-                lexer::Token::Let => {
+                token::Token::Let => {
                     // Expected Next:
                     // Variable Equals EXPRESSION
                     match token_iter.next() {
-                        Some(&lexer::TokenAndPos(_, lexer::Token::Variable(ref variable))) => {
+                        Some(&lexer::TokenAndPos(_, token::Token::Variable(ref variable))) => {
                             match token_iter.next() {
-                                Some(&lexer::TokenAndPos(_, lexer::Token::Equals)) => {
+                                Some(&lexer::TokenAndPos(_, token::Token::Equals)) => {
                                     match parse_and_eval_expression(&mut token_iter, &context) {
                                         Ok(value) => {
                                             context.variables
@@ -116,7 +117,7 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
                     }
                 }
 
-                lexer::Token::Print => {
+                token::Token::Print => {
                     // Expected Next:
                     // EXPRESSION
                     match parse_and_eval_expression(&mut token_iter, &context) {
@@ -132,9 +133,9 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
                     }
                 }
 
-                lexer::Token::Input => {
+                token::Token::Input => {
                     match token_iter.next() {
-                        Some(&lexer::TokenAndPos(_, lexer::Token::Variable(ref variable))) => {
+                        Some(&lexer::TokenAndPos(_, token::Token::Variable(ref variable))) => {
                             let mut input = String::new();
 
                             io::stdin()
@@ -159,7 +160,7 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
                     }
                 }
 
-                lexer::Token::If => {
+                token::Token::If => {
                     // Expected Next:
                     // EXPRESSION Then Number
                     // Where Number is a Line Number
@@ -191,10 +192,10 @@ fn parse_and_eval_expression<'a>(mut token_iter: &mut Iter<'a, lexer::TokenAndPo
     let mut result: RBasicValue = RBasicValue::String(String::new());
 
     match token_iter.next() {
-        Some(&lexer::TokenAndPos(_, lexer::Token::Number(number))) => {
+        Some(&lexer::TokenAndPos(_, token::Token::Number(number))) => {
             result = RBasicValue::Number(number);
         }
-        Some(&lexer::TokenAndPos(pos, lexer::Token::Variable(ref variable))) => {
+        Some(&lexer::TokenAndPos(pos, token::Token::Variable(ref variable))) => {
             match context.variables.get(variable) {
                 Some(value) => result = value.clone(),
                 None => {
@@ -204,11 +205,11 @@ fn parse_and_eval_expression<'a>(mut token_iter: &mut Iter<'a, lexer::TokenAndPo
                 }
             }
         }
-        Some(&lexer::TokenAndPos(_, lexer::Token::BString(ref string))) => {
+        Some(&lexer::TokenAndPos(_, token::Token::BString(ref string))) => {
             result = RBasicValue::String(string.clone());
         }
         // Unary Minus
-        Some(&lexer::TokenAndPos(pos, lexer::Token::Minus)) => {
+        Some(&lexer::TokenAndPos(pos, token::Token::Minus)) => {
             match parse_and_eval_expression(&mut token_iter, &context) {
                 Ok(RBasicValue::Number(number)) => {
                     result = RBasicValue::Number(-number);
@@ -218,7 +219,7 @@ fn parse_and_eval_expression<'a>(mut token_iter: &mut Iter<'a, lexer::TokenAndPo
             }
         }
         // Unary Not
-        Some(&lexer::TokenAndPos(pos, lexer::Token::Bang)) => {
+        Some(&lexer::TokenAndPos(pos, token::Token::Bang)) => {
             match parse_and_eval_expression(&mut token_iter, &context) {
                 Ok(RBasicValue::Bool(value)) => {
                     result = RBasicValue::Bool(!value);
