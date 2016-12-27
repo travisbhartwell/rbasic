@@ -77,7 +77,7 @@ pub fn tokenize_line(line: &str) -> Result<LineOfCode, String> {
                 _ => {
                     // Otherwise, next token is until next whitespace or closing paren
                     let mut token_chars: Vec<char> = char_iter.by_ref()
-                        .peeking_take_while(|&(_, x)| !x.is_whitespace() || x == ')')
+                        .peeking_take_while(|&(_, x)| !(x.is_whitespace() || x == ')'))
                         .map(|(_, x)| x)
                         .collect();
                     token_chars.insert(0, ch);

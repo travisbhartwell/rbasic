@@ -68,7 +68,8 @@ impl Token {
     pub fn is_operator(&self) -> bool {
         match *self {
             Token::Equals | Token::LessThan | Token::GreaterThan | Token::LessThanEqual |
-            Token::NotEqual | Token::Multiply | Token::Divide | Token::Minus | Token::Plus => true,
+            Token::NotEqual | Token::Multiply | Token::Divide | Token::Minus | Token::Plus |
+            Token::UMinus | Token::Bang => true,
             _ => false,
         }
     }
@@ -84,6 +85,7 @@ impl Token {
 
     pub fn operator_precedence(&self) -> Result<u8, String> {
         match *self {
+            Token::UMinus | Token::Bang => Ok(12),
             Token::Multiply | Token::Divide => Ok(10),
             Token::Minus | Token::Plus => Ok(8),
             Token::Equals | Token::LessThan | Token::GreaterThan | Token::LessThanEqual |
