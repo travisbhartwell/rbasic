@@ -149,6 +149,33 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
                     // Expected Next:
                     // EXPRESSION Then Number
                     // Where Number is a Line Number
+                    match (parse_and_eval_expression(&mut token_iter, &context),
+                           token_iter.next(),
+                           token_iter.next()) {
+                        (Ok(RBasicValue::Bool(ref value)),
+                         Some(&lexer::TokenAndPos(_, token::Token::Then)),
+                         Some(&lexer::TokenAndPos(_, token::Token::Number(ref number)))) => {
+                            if *value {
+                                line_has_goto = true;
+                                let n = lexer::LineNumber(*number as u32);
+                                match line_map.get(&n) {
+                                    Some(index) => line_index = *index,
+                                    _ => {
+                                        return Err(format!("At {:?}, {} invalid target line for \
+                                                            IF",
+                                                           line_number,
+                                                           pos))
+                                    }
+                                }
+
+                            }
+                        }
+                        _ => {
+                            return Err(format!("At {:?}, {}, invalid syntax for IF.",
+                                               line_number,
+                                               pos));
+                        }
+                    }
                 }
 
                 _ => {
@@ -195,7 +222,7 @@ fn parse_and_eval_expression<'a>(mut token_iter: &mut Iter<'a, lexer::TokenAndPo
         }
         // Unary Minus
         Some(&lexer::TokenAndPos(pos, token::Token::Minus)) => {
-            match parse_and_eval_expression(&mut token_iter, &context) {
+            match parse_and_eval_expression(&mut token_iter, context) {
                 Ok(RBasicValue::Number(number)) => {
                     result = RBasicValue::Number(-number);
                 }
@@ -205,7 +232,7 @@ fn parse_and_eval_expression<'a>(mut token_iter: &mut Iter<'a, lexer::TokenAndPo
         }
         // Unary Not
         Some(&lexer::TokenAndPos(pos, token::Token::Bang)) => {
-            match parse_and_eval_expression(&mut token_iter, &context) {
+            match parse_and_eval_expression(&mut token_iter, context) {
                 Ok(RBasicValue::Bool(value)) => {
                     result = RBasicValue::Bool(!value);
                 }
