@@ -83,37 +83,22 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
                 token::Token::Let => {
                     // Expected Next:
                     // Variable Equals EXPRESSION
-                    match token_iter.next() {
-                        Some(&lexer::TokenAndPos(_, token::Token::Variable(ref variable))) => {
-                            match token_iter.next() {
-                                Some(&lexer::TokenAndPos(_, token::Token::Equals)) => {
-                                    match parse_and_eval_expression(&mut token_iter, &context) {
-                                        Ok(value) => {
-                                            context.variables
-                                                .entry(variable.clone().to_string())
-                                                .or_insert(value);
-                                        }
-                                        Err(e) => {
-                                            return Err(format!("At {:?}, {} invalid syntax for \
-                                                                LET.",
-                                                               line_number,
-                                                               pos));
-                                        }
-                                    }
-                                }
-                                _ => {
-                                    return Err(format!("At {:?}, {} invalid syntax for LET.",
-                                                       line_number,
-                                                       pos));
-                                }
-
-                            }
+                    match (token_iter.next(),
+                           token_iter.next(),
+                           parse_and_eval_expression(&mut token_iter, &context)) {
+                        (Some(&lexer::TokenAndPos(_, token::Token::Variable(ref variable))),
+                         Some(&lexer::TokenAndPos(_, token::Token::Equals)),
+                         Ok(ref value)) => {
+                            context.variables
+                                .entry(variable.clone().to_string())
+                                .or_insert(value.clone());
                         }
                         _ => {
                             return Err(format!("At {:?}, {} invalid syntax for LET.",
                                                line_number,
                                                pos));
                         }
+
                     }
                 }
 
@@ -124,7 +109,7 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
                         Ok(RBasicValue::String(value)) => println!("{}", value),
                         Ok(RBasicValue::Number(value)) => println!("{}", value),
                         Ok(RBasicValue::Bool(value)) => println!("{}", value),
-                        Err(err) => {
+                        Err(_) => {
                             return Err(format!("At {:?}. {} PRINT must be followed by valid \
                                                 expression",
                                                line_number,
