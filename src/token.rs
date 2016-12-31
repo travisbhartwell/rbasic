@@ -37,6 +37,12 @@ pub enum Token {
     Then,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum Associativity {
+    Left,
+    Right,
+}
+
 impl Token {
     pub fn token_for_string(token_str: &str) -> Option<Token> {
         match token_str {
@@ -68,8 +74,8 @@ impl Token {
     pub fn is_operator(&self) -> bool {
         match *self {
             Token::Equals | Token::LessThan | Token::GreaterThan | Token::LessThanEqual |
-            Token::NotEqual | Token::Multiply | Token::Divide | Token::Minus | Token::Plus |
-            Token::UMinus | Token::Bang => true,
+            Token::GreaterThanEqual | Token::NotEqual | Token::Multiply | Token::Divide |
+            Token::Minus | Token::Plus | Token::UMinus | Token::Bang => true,
             _ => false,
         }
     }
@@ -84,13 +90,22 @@ impl Token {
     }
 
     pub fn operator_precedence(&self) -> Result<u8, String> {
+        if !self.is_operator() {
+            return Err("Not an operator!".to_string());
+        }
+
         match *self {
             Token::UMinus | Token::Bang => Ok(12),
             Token::Multiply | Token::Divide => Ok(10),
             Token::Minus | Token::Plus => Ok(8),
-            Token::Equals | Token::LessThan | Token::GreaterThan | Token::LessThanEqual |
-            Token::NotEqual => Ok(4),
-            _ => Err("Not an operator".to_string()),
+            _ => Ok(4),
+        }
+    }
+
+    pub fn operator_associavity(&self) -> Result<Associativity, String> {
+        match *self {
+            Token::UMinus | Token::Bang => Ok(Associativity::Right),
+            _ => Ok(Associativity::Left),
         }
     }
 }
