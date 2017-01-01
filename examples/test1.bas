@@ -1,0 +1,13 @@
+10 LET X = 10 + 5
+20 LET Y = X - 100
+30 PRINT X
+40 PRINT Y
+50 PRINT 3 + 4 * 2 / ( 1 - 5 )
+60 PRINT ( 3 + 4 ) * ( 5 - 1  )
+65 PRINT (3 + 4) * (5 - 1)
+70 IF X > Y THEN 90
+80 PRINT "Y IS GREATER"
+85 GOTO 100
+90 PRINT "X IS GREATER"
+100 PRINT !(X > Y)
+110 PRINT 3 + 4 * 5 / 2

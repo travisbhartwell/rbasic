@@ -93,8 +93,13 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
                          Some(&lexer::TokenAndPos(_, token::Token::Equals)),
                          Ok(ref value)) => {
                             context.variables
-                                .entry(variable.clone().to_string())
-                                .or_insert(value.clone());
+                                .insert(variable.clone().to_string(), value.clone());
+                        }
+                        (_, _, Err(e)) => {
+                            return Err(format!("At {:?}, {} error in LET expression: {}",
+                                               line_number,
+                                               pos,
+                                               e))
                         }
                         _ => {
                             return Err(format!("At {:?}, {} invalid syntax for LET.",
@@ -270,6 +275,8 @@ fn parse_and_eval_expression<'a>(mut token_iter: &mut Peekable<Iter<'a, lexer::T
         Ok(mut output_queue) => {
             let mut stack: Vec<RBasicValue> = Vec::new();
 
+            // println!("Evaluating queue: {:?}", output_queue);
+
             while !output_queue.is_empty() {
                 match output_queue.pop_front() {
                     Some(token::Token::Number(ref number)) => {
@@ -334,6 +341,16 @@ fn parse_and_eval_expression<'a>(mut token_iter: &mut Peekable<Iter<'a, lexer::T
                                                            operand1));
                                     }
                                 }
+                                (RBasicValue::String(operand2), RBasicValue::Number(operand1)) => {
+                                    if i32::from_str(operand2.as_str()).is_ok() {
+                                        stack.push(RBasicValue::Number(
+                                        operand1 + i32::from_str(operand2.as_str()).unwrap()));
+                                    } else {
+                                        return Err(format!("Cannot add integer {} and string {}!",
+                                                           operand1,
+                                                           operand2));
+                                    }
+                                }
                                 (_, _) => {
                                     return Err("Can only add integers and integers and strings \
                                                 together"
@@ -359,6 +376,17 @@ fn parse_and_eval_expression<'a>(mut token_iter: &mut Peekable<Iter<'a, lexer::T
                                                            operand1));
                                     }
                                 }
+                                (RBasicValue::String(operand2), RBasicValue::Number(operand1)) => {
+                                    if i32::from_str(operand2.as_str()).is_ok() {
+                                        stack.push(RBasicValue::Number(
+                                        operand1 - i32::from_str(operand2.as_str()).unwrap()));
+                                    } else {
+                                        return Err(format!("Cannot subtract integer {} and \
+                                                            string {}!",
+                                                           operand1,
+                                                           operand2));
+                                    }
+                                }
                                 (_, _) => {
                                     return Err("Can only subtract integers".to_string());
                                 }
@@ -382,8 +410,21 @@ fn parse_and_eval_expression<'a>(mut token_iter: &mut Peekable<Iter<'a, lexer::T
                                                            operand1));
                                     }
                                 }
-                                (_, _) => {
-                                    return Err("Can only multiply integers".to_string());
+                                (RBasicValue::String(operand2), RBasicValue::Number(operand1)) => {
+                                    if i32::from_str(operand2.as_str()).is_ok() {
+                                        stack.push(RBasicValue::Number(
+                                            operand1 * i32::from_str(operand2.as_str()).unwrap()));
+                                    } else {
+                                        return Err(format!("Cannot multiply integer {} and \
+                                                            string {}!",
+                                                           operand1,
+                                                           operand2));
+                                    }
+                                }
+                                (operand2, operand1) => {
+                                    return Err(format!("Can only multiply integers: {:?} {:?}",
+                                                       operand1,
+                                                       operand2));
                                 }
                             }
                         }
@@ -405,13 +446,23 @@ fn parse_and_eval_expression<'a>(mut token_iter: &mut Peekable<Iter<'a, lexer::T
                                                            operand1));
                                     }
                                 }
+                                (RBasicValue::String(operand2), RBasicValue::Number(operand1)) => {
+                                    if i32::from_str(operand2.as_str()).is_ok() {
+                                        stack.push(RBasicValue::Number(
+                                        operand1 / i32::from_str(operand2.as_str()).unwrap()));
+                                    } else {
+                                        return Err(format!("Cannot divide integer {} and string \
+                                                            {}!",
+                                                           operand1,
+                                                           operand2));
+                                    }
+                                }
                                 (_, _) => {
                                     return Err("Can only divide integers".to_string());
                                 }
                             }
                         }
                     }
-
                     Some(token::Token::Equals) => {
                         if stack.len() >= 2 {
                             match (stack.pop().unwrap(), stack.pop().unwrap()) {
@@ -474,7 +525,6 @@ fn parse_and_eval_expression<'a>(mut token_iter: &mut Peekable<Iter<'a, lexer::T
                             }
                         }
                     }
-
                     Some(token::Token::LessThan) => {
                         if stack.len() >= 2 {
                             match (stack.pop().unwrap(), stack.pop().unwrap()) {
@@ -594,6 +644,7 @@ fn parse_and_eval_expression<'a>(mut token_iter: &mut Peekable<Iter<'a, lexer::T
 
             // If expression is well formed, there will only be the result on the stack
             assert!(stack.len() == 1);
+            // println!("Final expression result: {:?}", stack[0]);
             Ok(stack[0].clone())
         }
 

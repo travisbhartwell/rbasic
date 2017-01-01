@@ -1,0 +1,10 @@
+10 REM My first program
+20 PRINT "What is your name?"
+30 INPUT NAME
+40 PRINT "Hello, " + NAME
+50 LET VALUE = -1
+60 PRINT "The value is: "
+70 PRINT VALUE
+75 LET VALUE2 = -VALUE
+77 PRINT VALUE2
+80 GOTO 10
