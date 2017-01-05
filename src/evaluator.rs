@@ -206,8 +206,8 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
     Ok("Completed Successfully".to_string())
 }
 
-fn parse_expression<'a>(mut token_iter: &mut Peekable<Iter<'a, lexer::TokenAndPos>>)
-                        -> Result<VecDeque<token::Token>, String> {
+fn parse_expression(mut token_iter: &mut Peekable<Iter<lexer::TokenAndPos>>)
+                    -> Result<VecDeque<token::Token>, String> {
     let mut output_queue: VecDeque<token::Token> = VecDeque::new();
     let mut operator_stack: Vec<token::Token> = Vec::new();
 
@@ -280,7 +280,7 @@ fn parse_and_eval_expression<'a>(mut token_iter: &mut Peekable<Iter<'a, lexer::T
             while !output_queue.is_empty() {
                 match output_queue.pop_front() {
                     Some(token::Token::Number(ref number)) => {
-                        stack.push(RBasicValue::Number(number.clone()))
+                        stack.push(RBasicValue::Number(*number))
                     }
                     Some(token::Token::BString(ref bstring)) => {
                         stack.push(RBasicValue::String(bstring.clone()))
@@ -298,7 +298,7 @@ fn parse_and_eval_expression<'a>(mut token_iter: &mut Peekable<Iter<'a, lexer::T
                         if stack.len() >= 1 {
                             match stack.pop().unwrap() {
                                 RBasicValue::Number(ref number) => {
-                                    stack.push(RBasicValue::Number(-number.clone()))
+                                    stack.push(RBasicValue::Number(-*number))
                                 }
                                 _ => return Err("Cannot negate non-numeric values!".to_string()),
                             }
@@ -648,6 +648,6 @@ fn parse_and_eval_expression<'a>(mut token_iter: &mut Peekable<Iter<'a, lexer::T
             Ok(stack[0].clone())
         }
 
-        _ => return Err("Invalid expression!".to_string()),
+        _ => Err("Invalid expression!".to_string()),
     }
 }

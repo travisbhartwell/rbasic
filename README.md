@@ -78,7 +78,7 @@ user. I'd like to also explore generative or property-based testing as well.
 
 I first was exposed to programming when my uncle gave me the book [BASIC
 Beginnings](https://www.amazon.com/gp/product/0380837749) and I had access to an
-Apple ][ computer in my classroom when I was in the fourth grade. Recently, I
+Apple \]\[ computer in my classroom when I was in the fourth grade. Recently, I
 was talking about how I got started in tech and the nostalgia came back. I've
 been wanting to learn the Rust language, as well as take on a language
 implementation project, so this was the perfect unison of those ideas and goals.
