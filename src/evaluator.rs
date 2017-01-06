@@ -1,5 +1,6 @@
 use lexer;
 use token;
+use value;
 
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -7,18 +8,10 @@ use std::collections::VecDeque;
 use std::io;
 use std::iter::Peekable;
 use std::slice::Iter;
-use std::str::FromStr;
-
-#[derive(Debug,Clone)]
-enum RBasicValue {
-    String(String),
-    Number(i32),
-    Bool(bool),
-}
 
 #[derive(Debug)]
 struct RBasicContext {
-    variables: HashMap<String, RBasicValue>,
+    variables: HashMap<String, value::RBasicValue>,
 }
 
 impl RBasicContext {
@@ -114,9 +107,9 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
                     // Expected Next:
                     // EXPRESSION
                     match parse_and_eval_expression(&mut token_iter, &context) {
-                        Ok(RBasicValue::String(value)) => println!("{}", value),
-                        Ok(RBasicValue::Number(value)) => println!("{}", value),
-                        Ok(RBasicValue::Bool(value)) => println!("{}", value),
+                        Ok(value::RBasicValue::String(value)) => println!("{}", value),
+                        Ok(value::RBasicValue::Number(value)) => println!("{}", value),
+                        Ok(value::RBasicValue::Bool(value)) => println!("{}", value),
                         Err(_) => {
                             return Err(format!("At {:?}. {} PRINT must be followed by valid \
                                                 expression",
@@ -135,7 +128,7 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
                                 .read_line(&mut input)
                                 .expect("failed to read line");
                             input = input.trim().to_string();
-                            let value = RBasicValue::String(input);
+                            let value = value::RBasicValue::String(input);
 
                             // Store the string now, can coerce to number later if needed
                             // Can overwrite an existing value
@@ -160,7 +153,7 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
                     match (parse_and_eval_expression(&mut token_iter, &context),
                            token_iter.next(),
                            token_iter.next()) {
-                        (Ok(RBasicValue::Bool(ref value)),
+                        (Ok(value::RBasicValue::Bool(ref value)),
                          Some(&lexer::TokenAndPos(_, token::Token::Then)),
                          Some(&lexer::TokenAndPos(_, token::Token::Number(ref number)))) => {
                             if *value {
@@ -270,20 +263,20 @@ fn parse_expression(mut token_iter: &mut Peekable<Iter<lexer::TokenAndPos>>)
 
 fn parse_and_eval_expression<'a>(mut token_iter: &mut Peekable<Iter<'a, lexer::TokenAndPos>>,
                                  context: &RBasicContext)
-                                 -> Result<RBasicValue, String> {
+                                 -> Result<value::RBasicValue, String> {
     match parse_expression(token_iter) {
         Ok(mut output_queue) => {
-            let mut stack: Vec<RBasicValue> = Vec::new();
+            let mut stack: Vec<value::RBasicValue> = Vec::new();
 
             // println!("Evaluating queue: {:?}", output_queue);
 
             while !output_queue.is_empty() {
                 match output_queue.pop_front() {
                     Some(token::Token::Number(ref number)) => {
-                        stack.push(RBasicValue::Number(*number))
+                        stack.push(value::RBasicValue::Number(*number))
                     }
                     Some(token::Token::BString(ref bstring)) => {
-                        stack.push(RBasicValue::String(bstring.clone()))
+                        stack.push(value::RBasicValue::String(bstring.clone()))
                     }
                     Some(token::Token::Variable(ref name)) => {
                         match context.variables.get(name) {
@@ -294,346 +287,69 @@ fn parse_and_eval_expression<'a>(mut token_iter: &mut Peekable<Iter<'a, lexer::T
                             }
                         }
                     }
-                    Some(token::Token::UMinus) => {
+                    Some(ref unary_token) if unary_token.is_unary_operator() => {
                         if stack.len() >= 1 {
-                            match stack.pop().unwrap() {
-                                RBasicValue::Number(ref number) => {
-                                    stack.push(RBasicValue::Number(-*number))
-                                }
-                                _ => return Err("Cannot negate non-numeric values!".to_string()),
-                            }
-                        } else {
-                            return Err("Unary minus requires an operand!".to_string());
-                        }
-                    }
-                    Some(token::Token::Bang) => {
-                        if stack.len() >= 1 {
-                            match stack.pop().unwrap() {
-                                RBasicValue::Bool(ref boolean) => {
-                                    stack.push(RBasicValue::Bool(!boolean))
-                                }
+                            let value = stack.pop().unwrap();
+                            let result = match *unary_token {
+                                token::Token::UMinus => -value,
+                                token::Token::Bang => !value,
                                 _ => {
-                                    return Err("Cannot Boolean not non-Boolean values!".to_string())
+                                    panic!("Shouldn't reach this because of pattern guard on \
+                                            token.")
                                 }
+                            };
+                            match result {
+                                Ok(value) => stack.push(value),
+                                Err(e) => return Err(e),
                             }
                         } else {
-                            return Err("Boolean not requires an operand!".to_string());
+                            return Err(format!("Operator {:?} requires an operand!", unary_token));
                         }
                     }
-                    Some(token::Token::Plus) => {
+                    Some(ref comparison_token) if comparison_token.is_comparison_operator() => {
                         if stack.len() >= 2 {
-                            match (stack.pop().unwrap(), stack.pop().unwrap()) {
-                                (RBasicValue::Number(operand2), RBasicValue::Number(operand1)) => {
-                                    stack.push(RBasicValue::Number(operand1 + operand2))
+                            let operand2 = &stack.pop().unwrap();
+                            let operand1 = &stack.pop().unwrap();
+
+                            let result = match *comparison_token {
+                                token::Token::Equals => operand1.eq(operand2),
+                                token::Token::NotEqual => operand1.neq(operand2),
+                                token::Token::LessThan => operand1.lt(operand2),
+                                token::Token::GreaterThan => operand1.gt(operand2),
+                                token::Token::LessThanEqual => operand1.lteq(operand2),
+                                token::Token::GreaterThanEqual => operand1.gteq(operand2),
+                                _ => {
+                                    panic!("Shouldn't reach this because of pattern guard on \
+                                            token!")
                                 }
-                                (RBasicValue::String(operand2), RBasicValue::String(operand1)) => {
-                                    stack.push(RBasicValue::String(format!("{}{}",
-                                                                           operand1,
-                                                                           operand2)));
-                                }
-                                (RBasicValue::Number(operand2), RBasicValue::String(operand1)) => {
-                                    if i32::from_str(operand1.as_str()).is_ok() {
-                                        stack.push(RBasicValue::Number(
-                                            i32::from_str(operand1.as_str()).unwrap() + operand2));
-                                    } else {
-                                        return Err(format!("Cannot add integer {} and string {}!",
-                                                           operand2,
-                                                           operand1));
-                                    }
-                                }
-                                (RBasicValue::String(operand2), RBasicValue::Number(operand1)) => {
-                                    if i32::from_str(operand2.as_str()).is_ok() {
-                                        stack.push(RBasicValue::Number(
-                                        operand1 + i32::from_str(operand2.as_str()).unwrap()));
-                                    } else {
-                                        return Err(format!("Cannot add integer {} and string {}!",
-                                                           operand1,
-                                                           operand2));
-                                    }
-                                }
-                                (_, _) => {
-                                    return Err("Can only add integers and integers and strings \
-                                                together"
-                                        .to_string());
-                                }
+                            };
+                            match result {
+                                Ok(value) => stack.push(value::RBasicValue::Bool(value)),
+                                Err(e) => return Err(e),
                             }
+                        } else {
+                            return Err(format!("Comparison operator {:?} requires two operands",
+                                               comparison_token));
                         }
                     }
-                    Some(token::Token::Minus) => {
+                    Some(ref binary_op_token) if binary_op_token.is_binary_operator() => {
                         if stack.len() >= 2 {
-                            match (stack.pop().unwrap(), stack.pop().unwrap()) {
-                                (RBasicValue::Number(operand2), RBasicValue::Number(operand1)) => {
-                                    stack.push(RBasicValue::Number(operand1 - operand2))
+                            let operand2 = stack.pop().unwrap();
+                            let operand1 = stack.pop().unwrap();
+
+                            let result = match *binary_op_token {
+                                token::Token::Plus => operand1 + operand2,
+                                token::Token::Minus => operand1 - operand2,
+                                token::Token::Multiply => operand1 * operand2,
+                                token::Token::Divide => operand1 / operand2,
+                                _ => {
+                                    panic!("Shouldn't reach this because of pattern guard on \
+                                            token and previous match!")
                                 }
-                                (RBasicValue::Number(operand2), RBasicValue::String(operand1)) => {
-                                    if i32::from_str(operand1.as_str()).is_ok() {
-                                        stack.push(RBasicValue::Number(
-                                            i32::from_str(operand1.as_str()).unwrap() - operand2));
-                                    } else {
-                                        return Err(format!("Cannot subtract integer {} and \
-                                                            string {}!",
-                                                           operand2,
-                                                           operand1));
-                                    }
-                                }
-                                (RBasicValue::String(operand2), RBasicValue::Number(operand1)) => {
-                                    if i32::from_str(operand2.as_str()).is_ok() {
-                                        stack.push(RBasicValue::Number(
-                                        operand1 - i32::from_str(operand2.as_str()).unwrap()));
-                                    } else {
-                                        return Err(format!("Cannot subtract integer {} and \
-                                                            string {}!",
-                                                           operand1,
-                                                           operand2));
-                                    }
-                                }
-                                (_, _) => {
-                                    return Err("Can only subtract integers".to_string());
-                                }
-                            }
-                        }
-                    }
-                    Some(token::Token::Multiply) => {
-                        if stack.len() >= 2 {
-                            match (stack.pop().unwrap(), stack.pop().unwrap()) {
-                                (RBasicValue::Number(operand2), RBasicValue::Number(operand1)) => {
-                                    stack.push(RBasicValue::Number(operand1 * operand2))
-                                }
-                                (RBasicValue::Number(operand2), RBasicValue::String(operand1)) => {
-                                    if i32::from_str(operand1.as_str()).is_ok() {
-                                        stack.push(RBasicValue::Number(
-                                            i32::from_str(operand1.as_str()).unwrap() * operand2));
-                                    } else {
-                                        return Err(format!("Cannot multiply integer {} and \
-                                                            string {}!",
-                                                           operand2,
-                                                           operand1));
-                                    }
-                                }
-                                (RBasicValue::String(operand2), RBasicValue::Number(operand1)) => {
-                                    if i32::from_str(operand2.as_str()).is_ok() {
-                                        stack.push(RBasicValue::Number(
-                                            operand1 * i32::from_str(operand2.as_str()).unwrap()));
-                                    } else {
-                                        return Err(format!("Cannot multiply integer {} and \
-                                                            string {}!",
-                                                           operand1,
-                                                           operand2));
-                                    }
-                                }
-                                (operand2, operand1) => {
-                                    return Err(format!("Can only multiply integers: {:?} {:?}",
-                                                       operand1,
-                                                       operand2));
-                                }
-                            }
-                        }
-                    }
-                    Some(token::Token::Divide) => {
-                        if stack.len() >= 2 {
-                            match (stack.pop().unwrap(), stack.pop().unwrap()) {
-                                (RBasicValue::Number(operand2), RBasicValue::Number(operand1)) => {
-                                    stack.push(RBasicValue::Number(operand1 / operand2))
-                                }
-                                (RBasicValue::Number(operand2), RBasicValue::String(operand1)) => {
-                                    if i32::from_str(operand1.as_str()).is_ok() {
-                                        stack.push(RBasicValue::Number(
-                                            i32::from_str(operand1.as_str()).unwrap() / operand2));
-                                    } else {
-                                        return Err(format!("Cannot divide integer {} and string \
-                                                            {}!",
-                                                           operand2,
-                                                           operand1));
-                                    }
-                                }
-                                (RBasicValue::String(operand2), RBasicValue::Number(operand1)) => {
-                                    if i32::from_str(operand2.as_str()).is_ok() {
-                                        stack.push(RBasicValue::Number(
-                                        operand1 / i32::from_str(operand2.as_str()).unwrap()));
-                                    } else {
-                                        return Err(format!("Cannot divide integer {} and string \
-                                                            {}!",
-                                                           operand1,
-                                                           operand2));
-                                    }
-                                }
-                                (_, _) => {
-                                    return Err("Can only divide integers".to_string());
-                                }
-                            }
-                        }
-                    }
-                    Some(token::Token::Equals) => {
-                        if stack.len() >= 2 {
-                            match (stack.pop().unwrap(), stack.pop().unwrap()) {
-                                (RBasicValue::Number(operand2), RBasicValue::Number(operand1)) => {
-                                    stack.push(RBasicValue::Bool(operand1 == operand2))
-                                }
-                                (RBasicValue::String(operand2), RBasicValue::String(operand1)) => {
-                                    stack.push(RBasicValue::Bool(operand1 == operand2))
-                                }
-                                (RBasicValue::Bool(operand2), RBasicValue::Bool(operand1)) => {
-                                    stack.push(RBasicValue::Bool(operand1 == operand2))
-                                }
-                                (RBasicValue::Number(operand2), RBasicValue::String(operand1)) => {
-                                    if i32::from_str(operand1.as_str()).is_ok() {
-                                        stack.push(
-                                            RBasicValue::Bool(
-                                                i32::from_str(
-                                                    operand1.as_str()).unwrap() == operand2));
-                                    } else {
-                                        return Err(format!("Cannot compare integer {} and \
-                                                            string {}!",
-                                                           operand2,
-                                                           operand1));
-                                    }
-                                }
-                                (_, _) => {
-                                    return Err("Can only compare similar types".to_string());
-                                }
-                            }
-                        }
-                    }
-                    Some(token::Token::NotEqual) => {
-                        if stack.len() >= 2 {
-                            match (stack.pop().unwrap(), stack.pop().unwrap()) {
-                                (RBasicValue::Number(operand2), RBasicValue::Number(operand1)) => {
-                                    stack.push(RBasicValue::Bool(operand1 != operand2))
-                                }
-                                (RBasicValue::String(operand2), RBasicValue::String(operand1)) => {
-                                    stack.push(RBasicValue::Bool(operand1 != operand2))
-                                }
-                                (RBasicValue::Bool(operand2), RBasicValue::Bool(operand1)) => {
-                                    stack.push(RBasicValue::Bool(operand1 != operand2))
-                                }
-                                (RBasicValue::Number(operand2), RBasicValue::String(operand1)) => {
-                                    if i32::from_str(operand1.as_str()).is_ok() {
-                                        stack.push(
-                                            RBasicValue::Bool(
-                                                i32::from_str(
-                                                    operand1.as_str()).unwrap() != operand2));
-                                    } else {
-                                        return Err(format!("Cannot compare integer {} and \
-                                                            string {}!",
-                                                           operand2,
-                                                           operand1));
-                                    }
-                                }
-                                (_, _) => {
-                                    return Err("Can only compare similar types".to_string());
-                                }
-                            }
-                        }
-                    }
-                    Some(token::Token::LessThan) => {
-                        if stack.len() >= 2 {
-                            match (stack.pop().unwrap(), stack.pop().unwrap()) {
-                                (RBasicValue::Number(operand2), RBasicValue::Number(operand1)) => {
-                                    stack.push(RBasicValue::Bool(operand1 < operand2))
-                                }
-                                (RBasicValue::String(operand2), RBasicValue::String(operand1)) => {
-                                    stack.push(RBasicValue::Bool(operand1 < operand2))
-                                }
-                                (RBasicValue::Number(operand2), RBasicValue::String(operand1)) => {
-                                    if i32::from_str(operand1.as_str()).is_ok() {
-                                        stack.push(
-                                            RBasicValue::Bool(
-                                                i32::from_str(
-                                                    operand1.as_str()).unwrap() < operand2));
-                                    } else {
-                                        return Err(format!("Cannot compare integer {} and \
-                                                            string {}!",
-                                                           operand2,
-                                                           operand1));
-                                    }
-                                }
-                                (_, _) => {
-                                    return Err("Can only compare similar types".to_string());
-                                }
-                            }
-                        }
-                    }
-                    Some(token::Token::GreaterThan) => {
-                        if stack.len() >= 2 {
-                            match (stack.pop().unwrap(), stack.pop().unwrap()) {
-                                (RBasicValue::Number(operand2), RBasicValue::Number(operand1)) => {
-                                    stack.push(RBasicValue::Bool(operand1 > operand2))
-                                }
-                                (RBasicValue::String(operand2), RBasicValue::String(operand1)) => {
-                                    stack.push(RBasicValue::Bool(operand1 > operand2))
-                                }
-                                (RBasicValue::Number(operand2), RBasicValue::String(operand1)) => {
-                                    if i32::from_str(operand1.as_str()).is_ok() {
-                                        stack.push(
-                                            RBasicValue::Bool(
-                                                i32::from_str(
-                                                    operand1.as_str()).unwrap() > operand2));
-                                    } else {
-                                        return Err(format!("Cannot compare integer {} and \
-                                                            string {}!",
-                                                           operand2,
-                                                           operand1));
-                                    }
-                                }
-                                (_, _) => {
-                                    return Err("Can only compare similar types".to_string());
-                                }
-                            }
-                        }
-                    }
-                    Some(token::Token::LessThanEqual) => {
-                        if stack.len() >= 2 {
-                            match (stack.pop().unwrap(), stack.pop().unwrap()) {
-                                (RBasicValue::Number(operand2), RBasicValue::Number(operand1)) => {
-                                    stack.push(RBasicValue::Bool(operand1 <= operand2))
-                                }
-                                (RBasicValue::String(operand2), RBasicValue::String(operand1)) => {
-                                    stack.push(RBasicValue::Bool(operand1 <= operand2))
-                                }
-                                (RBasicValue::Number(operand2), RBasicValue::String(operand1)) => {
-                                    if i32::from_str(operand1.as_str()).is_ok() {
-                                        stack.push(
-                                            RBasicValue::Bool(
-                                                i32::from_str(
-                                                    operand1.as_str()).unwrap() <= operand2));
-                                    } else {
-                                        return Err(format!("Cannot compare integer {} and \
-                                                            string {}!",
-                                                           operand2,
-                                                           operand1));
-                                    }
-                                }
-                                (_, _) => {
-                                    return Err("Can only compare similar types".to_string());
-                                }
-                            }
-                        }
-                    }
-                    Some(token::Token::GreaterThanEqual) => {
-                        if stack.len() >= 2 {
-                            match (stack.pop().unwrap(), stack.pop().unwrap()) {
-                                (RBasicValue::Number(operand2), RBasicValue::Number(operand1)) => {
-                                    stack.push(RBasicValue::Bool(operand1 >= operand2))
-                                }
-                                (RBasicValue::String(operand2), RBasicValue::String(operand1)) => {
-                                    stack.push(RBasicValue::Bool(operand1 >= operand2))
-                                }
-                                (RBasicValue::Number(operand2), RBasicValue::String(operand1)) => {
-                                    if i32::from_str(operand1.as_str()).is_ok() {
-                                        stack.push(
-                                            RBasicValue::Bool(
-                                                i32::from_str(
-                                                    operand1.as_str()).unwrap() >= operand2));
-                                    } else {
-                                        return Err(format!("Cannot compare integer {} and \
-                                                            string {}!",
-                                                           operand2,
-                                                           operand1));
-                                    }
-                                }
-                                (_, _) => {
-                                    return Err("Can only compare similar types".to_string());
-                                }
+                            };
+                            match result {
+                                Ok(value) => stack.push(value),
+                                Err(e) => return Err(e),
                             }
                         }
                     }

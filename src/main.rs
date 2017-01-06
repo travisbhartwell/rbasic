@@ -1,12 +1,12 @@
 extern crate itertools;
+extern crate rbasic;
 
 use std::io::Read;
 use std::fs::File;
 use std::env;
 
-pub mod lexer;
-pub mod evaluator;
-pub mod token;
+use rbasic::lexer;
+use rbasic::evaluator;
 
 fn read_file(path: &str) -> Result<String, std::io::Error> {
     let mut f = File::open(path)?;

@@ -80,6 +80,25 @@ impl Token {
         }
     }
 
+    pub fn is_comparison_operator(&self) -> bool {
+        match *self {
+            Token::Equals | Token::LessThan | Token::GreaterThan | Token::LessThanEqual |
+            Token::GreaterThanEqual | Token::NotEqual => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_unary_operator(&self) -> bool {
+        match *self {
+            Token::UMinus | Token::Bang => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_binary_operator(&self) -> bool {
+        self.is_operator() && !self.is_unary_operator()
+    }
+
     pub fn is_value(&self) -> bool {
         match *self {
             Token::Variable(_) |
