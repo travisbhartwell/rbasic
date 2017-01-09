@@ -66,12 +66,18 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
                                 }
                             }
                         }
-                        _ => {
-                            // TODO: Line # and Column # are 0 based, make readable
+                        Some(&lexer::TokenAndPos(pos, _)) => {
                             return Err(format!("At {:?}, {} GOTO must be followed by valid line \
                                                 number",
                                                line_number,
                                                pos));
+                        }
+                        None => {
+                            return Err(format!("At {:?}, {} GOTO must be followed by a line \
+                                                number",
+                                               line_number,
+                                               // Adding 4 to give the position past GOTO
+                                               pos + 4));
                         }
                     }
                 }
@@ -141,7 +147,8 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
                             return Err(format!("At {:?}, {} INPUT must be followed by a \
                                                 variable name",
                                                line_number,
-                                               pos));
+                                               // Adding 5 to put position past INPUT
+                                               pos + 5));
                         }
                     }
                 }
