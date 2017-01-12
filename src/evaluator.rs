@@ -252,7 +252,7 @@ fn parse_expression(mut token_iter: &mut Peekable<Iter<lexer::TokenAndPos>>)
                     }
                 }
             }
-            _ => panic!("Shouldn't get here!".to_string()),
+            _ => unreachable!(),
         }
     }
 
@@ -300,10 +300,8 @@ fn parse_and_eval_expression<'a>(mut token_iter: &mut Peekable<Iter<'a, lexer::T
                             let result = match *unary_token {
                                 token::Token::UMinus => -value,
                                 token::Token::Bang => !value,
-                                _ => {
-                                    panic!("Shouldn't reach this because of pattern guard on \
-                                            token.")
-                                }
+                                // Pattern guard prevents any other match
+                                _ => unreachable!(),
                             };
                             match result {
                                 Ok(value) => stack.push(value),
@@ -325,10 +323,8 @@ fn parse_and_eval_expression<'a>(mut token_iter: &mut Peekable<Iter<'a, lexer::T
                                 token::Token::GreaterThan => operand1.gt(operand2),
                                 token::Token::LessThanEqual => operand1.lteq(operand2),
                                 token::Token::GreaterThanEqual => operand1.gteq(operand2),
-                                _ => {
-                                    panic!("Shouldn't reach this because of pattern guard on \
-                                            token!")
-                                }
+                                // Pattern guard prevents any other match
+                                _ => unreachable!(),
                             };
                             match result {
                                 Ok(value) => stack.push(value::RBasicValue::Bool(value)),
@@ -349,10 +345,8 @@ fn parse_and_eval_expression<'a>(mut token_iter: &mut Peekable<Iter<'a, lexer::T
                                 token::Token::Minus => operand1 - operand2,
                                 token::Token::Multiply => operand1 * operand2,
                                 token::Token::Divide => operand1 / operand2,
-                                _ => {
-                                    panic!("Shouldn't reach this because of pattern guard on \
-                                            token and previous match!")
-                                }
+                                // Pattern guard prevents any other match
+                                _ => unreachable!(),
                             };
                             match result {
                                 Ok(value) => stack.push(value),
@@ -360,8 +354,7 @@ fn parse_and_eval_expression<'a>(mut token_iter: &mut Peekable<Iter<'a, lexer::T
                             }
                         }
                     }
-                    None => panic!("Shouldn't reach this, None!"),
-                    _ => panic!("Shouldn't reach this!"),
+                    None | _ => unreachable!(),
                 }
             }
 
