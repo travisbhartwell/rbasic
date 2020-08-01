@@ -1,4 +1,4 @@
-extern crate itertools;
+
 
 pub mod evaluator;
 pub mod lexer;

@@ -1,6 +1,5 @@
-use token;
+use crate::token;
 
-extern crate itertools;
 use itertools::Itertools;
 
 use std::str::FromStr;
@@ -28,7 +27,8 @@ pub fn tokenize_line(line: &str) -> Result<LineOfCode, String> {
 
         if pos == 0 {
             if ch.is_numeric() {
-                let mut num_chars: Vec<char> = char_iter.by_ref()
+                let mut num_chars: Vec<char> = char_iter
+                    .by_ref()
                     .take_while(|&(_, x)| !x.is_whitespace())
                     .map(|(_, x)| x)
                     .collect();
@@ -38,9 +38,11 @@ pub fn tokenize_line(line: &str) -> Result<LineOfCode, String> {
                 match u32::from_str(num_str.as_str()) {
                     Ok(number) => line_number = LineNumber(number),
                     Err(_) => {
-                        return Err(format!("Line must start with number followed by \
+                        return Err(format!(
+                            "Line must start with number followed by \
                                             whitespace:\n\t{}",
-                                           line))
+                            line
+                        ))
                     }
                 };
             } else {
@@ -57,7 +59,8 @@ pub fn tokenize_line(line: &str) -> Result<LineOfCode, String> {
                 '"' => {
                     // TODO: Handle escaped quotes
                     // TODO: Handle malformed string
-                    let str_chars: Vec<char> = char_iter.by_ref()
+                    let str_chars: Vec<char> = char_iter
+                        .by_ref()
                         .take_while(|&(_, x)| x != '"')
                         .map(|(_, x)| x)
                         .collect();
@@ -76,7 +79,8 @@ pub fn tokenize_line(line: &str) -> Result<LineOfCode, String> {
                 ')' => tokens.push(TokenAndPos(pos, token::Token::RParen)),
                 _ => {
                     // Otherwise, next token is until next whitespace or closing paren
-                    let mut token_chars: Vec<char> = char_iter.by_ref()
+                    let mut token_chars: Vec<char> = char_iter
+                        .by_ref()
                         .peeking_take_while(|&(_, x)| !(x.is_whitespace() || x == ')'))
                         .map(|(_, x)| x)
                         .collect();
@@ -84,23 +88,25 @@ pub fn tokenize_line(line: &str) -> Result<LineOfCode, String> {
                     let token_str: String = token_chars.into_iter().collect();
 
                     if i32::from_str(token_str.as_str()).is_ok() {
-                        tokens.push(TokenAndPos(pos,
-                                          token::Token::Number(i32::from_str(token_str.as_str())
-                                              .unwrap())));
+                        tokens.push(TokenAndPos(
+                            pos,
+                            token::Token::Number(i32::from_str(token_str.as_str()).unwrap()),
+                        ));
                     } else {
                         let token = token::Token::token_for_string(token_str.as_str());
 
                         match token {
                             None => {
                                 if is_valid_identifier(&token_str) {
-                                    tokens
-                                    .push(TokenAndPos(pos,
-                                                      token::Token::Variable(token_str
-                                                                             .to_string())))
+                                    tokens.push(TokenAndPos(
+                                        pos,
+                                        token::Token::Variable(token_str.to_string()),
+                                    ))
                                 } else {
-                                    return Err(format!("Unimplemented token at {}:\t{}",
-                                                       pos,
-                                                       token_str));
+                                    return Err(format!(
+                                        "Unimplemented token at {}:\t{}",
+                                        pos, token_str
+                                    ));
                                 }
                             }
 
@@ -111,8 +117,10 @@ pub fn tokenize_line(line: &str) -> Result<LineOfCode, String> {
                                 // The rest of the line is a comment
                                 let comment_str: String =
                                     char_iter.by_ref().map(|(_, x)| x).collect();
-                                tokens.push(TokenAndPos((pos + 4) as u32,
-                                                        token::Token::Comment(comment_str)))
+                                tokens.push(TokenAndPos(
+                                    (pos + 4) as u32,
+                                    token::Token::Comment(comment_str),
+                                ))
                             }
 
                             Some(token) => {
@@ -126,8 +134,8 @@ pub fn tokenize_line(line: &str) -> Result<LineOfCode, String> {
     }
 
     Ok(LineOfCode {
-        line_number: line_number,
-        tokens: tokens,
+        line_number,
+        tokens,
     })
 }
 
@@ -137,17 +145,15 @@ fn is_valid_identifier(token_str: &str) -> bool {
     let mut v = token_str.chars();
     let c = v.next();
     match c {
-        Some(c) => {
-            match c {
-                'a'...'z' | 'A'...'Z' => (),
-                _ => return false,
-            }
-        }
+        Some(c) => match c {
+            'a'..='z' | 'A'..='Z' => (),
+            _ => return false,
+        },
         None => return false,
     }
     for c in v {
         match c {
-            'a'...'z' | 'A'...'Z' | '0'...'9' | '_' => (),
+            'a'..='z' | 'A'..='Z' | '0'..='9' | '_' => (),
             _ => return false,
         }
     }

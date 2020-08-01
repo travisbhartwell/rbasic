@@ -1,6 +1,6 @@
-use lexer;
-use token;
-use value;
+use crate::lexer;
+use crate::token;
+use crate::value;
 
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -16,7 +16,9 @@ struct RBasicContext {
 
 impl RBasicContext {
     fn new() -> RBasicContext {
-        RBasicContext { variables: HashMap::new() }
+        RBasicContext {
+            variables: HashMap::new(),
+        }
     }
 }
 
@@ -60,24 +62,28 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
                             match line_map.get(&n) {
                                 Some(index) => line_index = *index,
                                 _ => {
-                                    return Err(format!("At {:?}, {} invalid target line for GOTO",
-                                                       line_number,
-                                                       pos))
+                                    return Err(format!(
+                                        "At {:?}, {} invalid target line for GOTO",
+                                        line_number, pos
+                                    ))
                                 }
                             }
                         }
                         Some(&lexer::TokenAndPos(pos, _)) => {
-                            return Err(format!("At {:?}, {} GOTO must be followed by valid line \
+                            return Err(format!(
+                                "At {:?}, {} GOTO must be followed by valid line \
                                                 number",
-                                               line_number,
-                                               pos));
+                                line_number, pos
+                            ));
                         }
                         None => {
-                            return Err(format!("At {:?}, {} GOTO must be followed by a line \
+                            return Err(format!(
+                                "At {:?}, {} GOTO must be followed by a line \
                                                 number",
-                                               line_number,
-                                               // Adding 4 to give the position past GOTO
-                                               pos + 4));
+                                line_number,
+                                // Adding 4 to give the position past GOTO
+                                pos + 4
+                            ));
                         }
                     }
                 }
@@ -85,27 +91,32 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
                 token::Token::Let => {
                     // Expected Next:
                     // Variable Equals EXPRESSION
-                    match (token_iter.next(),
-                           token_iter.next(),
-                           parse_and_eval_expression(&mut token_iter, &context)) {
-                        (Some(&lexer::TokenAndPos(_, token::Token::Variable(ref variable))),
-                         Some(&lexer::TokenAndPos(_, token::Token::Equals)),
-                         Ok(ref value)) => {
-                            context.variables
+                    match (
+                        token_iter.next(),
+                        token_iter.next(),
+                        parse_and_eval_expression(&mut token_iter, &context),
+                    ) {
+                        (
+                            Some(&lexer::TokenAndPos(_, token::Token::Variable(ref variable))),
+                            Some(&lexer::TokenAndPos(_, token::Token::Equals)),
+                            Ok(ref value),
+                        ) => {
+                            context
+                                .variables
                                 .insert(variable.clone().to_string(), value.clone());
                         }
                         (_, _, Err(e)) => {
-                            return Err(format!("At {:?}, {} error in LET expression: {}",
-                                               line_number,
-                                               pos,
-                                               e))
+                            return Err(format!(
+                                "At {:?}, {} error in LET expression: {}",
+                                line_number, pos, e
+                            ))
                         }
                         _ => {
-                            return Err(format!("At {:?}, {} invalid syntax for LET.",
-                                               line_number,
-                                               pos));
+                            return Err(format!(
+                                "At {:?}, {} invalid syntax for LET.",
+                                line_number, pos
+                            ));
                         }
-
                     }
                 }
 
@@ -117,10 +128,11 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
                         Ok(value::RBasicValue::Number(value)) => println!("{}", value),
                         Ok(value::RBasicValue::Bool(value)) => println!("{}", value),
                         Err(_) => {
-                            return Err(format!("At {:?}. {} PRINT must be followed by valid \
+                            return Err(format!(
+                                "At {:?}. {} PRINT must be followed by valid \
                                                 expression",
-                                               line_number,
-                                               pos))
+                                line_number, pos
+                            ))
                         }
                     }
                 }
@@ -138,17 +150,20 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
 
                             // Store the string now, can coerce to number later if needed
                             // Can overwrite an existing value
-                            context.variables
+                            context
+                                .variables
                                 .entry(variable.clone().to_string())
                                 .or_insert(value);
                         }
 
                         _ => {
-                            return Err(format!("At {:?}, {} INPUT must be followed by a \
+                            return Err(format!(
+                                "At {:?}, {} INPUT must be followed by a \
                                                 variable name",
-                                               line_number,
-                                               // Adding 5 to put position past INPUT
-                                               pos + 5));
+                                line_number,
+                                // Adding 5 to put position past INPUT
+                                pos + 5
+                            ));
                         }
                     }
                 }
@@ -157,31 +172,36 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
                     // Expected Next:
                     // EXPRESSION Then Number
                     // Where Number is a Line Number
-                    match (parse_and_eval_expression(&mut token_iter, &context),
-                           token_iter.next(),
-                           token_iter.next()) {
-                        (Ok(value::RBasicValue::Bool(ref value)),
-                         Some(&lexer::TokenAndPos(_, token::Token::Then)),
-                         Some(&lexer::TokenAndPos(_, token::Token::Number(ref number)))) => {
+                    match (
+                        parse_and_eval_expression(&mut token_iter, &context),
+                        token_iter.next(),
+                        token_iter.next(),
+                    ) {
+                        (
+                            Ok(value::RBasicValue::Bool(ref value)),
+                            Some(&lexer::TokenAndPos(_, token::Token::Then)),
+                            Some(&lexer::TokenAndPos(_, token::Token::Number(ref number))),
+                        ) => {
                             if *value {
                                 line_has_goto = true;
                                 let n = lexer::LineNumber(*number as u32);
                                 match line_map.get(&n) {
                                     Some(index) => line_index = *index,
                                     _ => {
-                                        return Err(format!("At {:?}, {} invalid target line for \
+                                        return Err(format!(
+                                            "At {:?}, {} invalid target line for \
                                                             IF",
-                                                           line_number,
-                                                           pos))
+                                            line_number, pos
+                                        ))
                                     }
                                 }
-
                             }
                         }
                         _ => {
-                            return Err(format!("At {:?}, {}, invalid syntax for IF.",
-                                               line_number,
-                                               pos));
+                            return Err(format!(
+                                "At {:?}, {}, invalid syntax for IF.",
+                                line_number, pos
+                            ));
                         }
                     }
                 }
@@ -206,15 +226,15 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
     Ok("Completed Successfully".to_string())
 }
 
-fn parse_expression(mut token_iter: &mut Peekable<Iter<lexer::TokenAndPos>>)
-                    -> Result<VecDeque<token::Token>, String> {
+fn parse_expression(
+    token_iter: &mut Peekable<Iter<'_, lexer::TokenAndPos>>,
+) -> Result<VecDeque<token::Token>, String> {
     let mut output_queue: VecDeque<token::Token> = VecDeque::new();
     let mut operator_stack: Vec<token::Token> = Vec::new();
 
     loop {
         match token_iter.peek() {
-            Some(&&lexer::TokenAndPos(_, token::Token::Then)) |
-            None => break,
+            Some(&&lexer::TokenAndPos(_, token::Token::Then)) | None => break,
             _ => {}
         }
 
@@ -228,10 +248,11 @@ fn parse_expression(mut token_iter: &mut Peekable<Iter<lexer::TokenAndPos>>)
                     if top_op.is_operator() {
                         let associativity = op_token.operator_associavity().unwrap();
 
-                        if (associativity == token::Associativity::Left &&
-                            op_token.operator_precedence() <= top_op.operator_precedence()) ||
-                           (associativity == token::Associativity::Right &&
-                            op_token.operator_precedence() < top_op.operator_precedence()) {
+                        if (associativity == token::Associativity::Left
+                            && op_token.operator_precedence() <= top_op.operator_precedence())
+                            || (associativity == token::Associativity::Right
+                                && op_token.operator_precedence() < top_op.operator_precedence())
+                        {
                             let top_op = operator_stack.pop().unwrap();
                             output_queue.push_back(top_op.clone());
                         }
@@ -243,15 +264,13 @@ fn parse_expression(mut token_iter: &mut Peekable<Iter<lexer::TokenAndPos>>)
             Some(&lexer::TokenAndPos(_, token::Token::LParen)) => {
                 operator_stack.push(token::Token::LParen);
             }
-            Some(&lexer::TokenAndPos(_, token::Token::RParen)) => {
-                loop {
-                    match operator_stack.pop() {
-                        Some(token::Token::LParen) => break,
-                        Some(ref next_token) => output_queue.push_back(next_token.clone()),
-                        None => return Err("Mismatched parenthesis in expression".to_string()),
-                    }
+            Some(&lexer::TokenAndPos(_, token::Token::RParen)) => loop {
+                match operator_stack.pop() {
+                    Some(token::Token::LParen) => break,
+                    Some(ref next_token) => output_queue.push_back(next_token.clone()),
+                    None => return Err("Mismatched parenthesis in expression".to_string()),
                 }
-            }
+            },
             _ => unreachable!(),
         }
     }
@@ -268,9 +287,10 @@ fn parse_expression(mut token_iter: &mut Peekable<Iter<lexer::TokenAndPos>>)
     Ok(output_queue)
 }
 
-fn parse_and_eval_expression<'a>(mut token_iter: &mut Peekable<Iter<'a, lexer::TokenAndPos>>,
-                                 context: &RBasicContext)
-                                 -> Result<value::RBasicValue, String> {
+fn parse_and_eval_expression<'a>(
+    token_iter: &mut Peekable<Iter<'a, lexer::TokenAndPos>>,
+    context: &RBasicContext,
+) -> Result<value::RBasicValue, String> {
     match parse_expression(token_iter) {
         Ok(mut output_queue) => {
             let mut stack: Vec<value::RBasicValue> = Vec::new();
@@ -285,17 +305,17 @@ fn parse_and_eval_expression<'a>(mut token_iter: &mut Peekable<Iter<'a, lexer::T
                     Some(token::Token::BString(ref bstring)) => {
                         stack.push(value::RBasicValue::String(bstring.clone()))
                     }
-                    Some(token::Token::Variable(ref name)) => {
-                        match context.variables.get(name) {
-                            Some(value) => stack.push(value.clone()),
-                            None => {
-                                return Err(format!("Invalid variable reference {} in expression",
-                                                   name))
-                            }
+                    Some(token::Token::Variable(ref name)) => match context.variables.get(name) {
+                        Some(value) => stack.push(value.clone()),
+                        None => {
+                            return Err(format!(
+                                "Invalid variable reference {} in expression",
+                                name
+                            ))
                         }
-                    }
+                    },
                     Some(ref unary_token) if unary_token.is_unary_operator() => {
-                        if stack.len() >= 1 {
+                        if !stack.is_empty() {
                             let value = stack.pop().unwrap();
                             let result = match *unary_token {
                                 token::Token::UMinus => -value,
@@ -331,8 +351,10 @@ fn parse_and_eval_expression<'a>(mut token_iter: &mut Peekable<Iter<'a, lexer::T
                                 Err(e) => return Err(e),
                             }
                         } else {
-                            return Err(format!("Comparison operator {:?} requires two operands",
-                                               comparison_token));
+                            return Err(format!(
+                                "Comparison operator {:?} requires two operands",
+                                comparison_token
+                            ));
                         }
                     }
                     Some(ref binary_op_token) if binary_op_token.is_binary_operator() => {
@@ -354,7 +376,8 @@ fn parse_and_eval_expression<'a>(mut token_iter: &mut Peekable<Iter<'a, lexer::T
                             }
                         }
                     }
-                    None | _ => unreachable!(),
+                    None => unreachable!(),
+                    _ => unreachable!(),
                 }
             }
 

@@ -6,7 +6,7 @@ use std::ops::Not;
 use std::ops::Sub;
 use std::str::FromStr;
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub enum RBasicValue {
     String(String),
     Number(i32),
@@ -53,19 +53,25 @@ impl Add for RBasicValue {
             (RBasicValue::Number(number1), RBasicValue::String(string2)) => {
                 let number2 = i32::from_str(string2.as_str());
 
-                if number2.is_ok() {
-                    Ok(RBasicValue::Number(number1 + number2.unwrap()))
+                if let Result::Ok(number2_value) = number2 {
+                    Ok(RBasicValue::Number(number1 + number2_value))
                 } else {
-                    Err(format!("Cannot add integer {} and string {}", number1, string2))
+                    Err(format!(
+                        "Cannot add integer {} and string {}",
+                        number1, string2
+                    ))
                 }
             }
             (RBasicValue::String(string1), RBasicValue::Number(number2)) => {
                 let number1 = i32::from_str(string1.as_str());
 
-                if number1.is_ok() {
-                    Ok(RBasicValue::Number(number1.unwrap() + number2))
+                if let Result::Ok(number1_value) = number1 {
+                    Ok(RBasicValue::Number(number1_value + number2))
                 } else {
-                    Err(format!("Cannot add string {} and integer {}", string1, number2))
+                    Err(format!(
+                        "Cannot add string {} and integer {}",
+                        string1, number2
+                    ))
                 }
             }
             _ => Err("Can only add integers or concatenate strings.".to_string()),
@@ -84,19 +90,25 @@ impl Div for RBasicValue {
             (RBasicValue::Number(number1), RBasicValue::String(string2)) => {
                 let number2 = i32::from_str(string2.as_str());
 
-                if number2.is_ok() {
-                    Ok(RBasicValue::Number(number1 / number2.unwrap()))
+                if let Result::Ok(number2_value) = number2 {
+                    Ok(RBasicValue::Number(number1 / number2_value))
                 } else {
-                    Err(format!("Cannot divide integer {} and string {}", number1, string2))
+                    Err(format!(
+                        "Cannot divide integer {} and string {}",
+                        number1, string2
+                    ))
                 }
             }
             (RBasicValue::String(string1), RBasicValue::Number(number2)) => {
                 let number1 = i32::from_str(string1.as_str());
 
-                if number1.is_ok() {
-                    Ok(RBasicValue::Number(number1.unwrap() / number2))
+                if let Result::Ok(number1_value) = number1 {
+                    Ok(RBasicValue::Number(number1_value / number2))
                 } else {
-                    Err(format!("Cannot divide string {} and integer {}", string1, number2))
+                    Err(format!(
+                        "Cannot divide string {} and integer {}",
+                        string1, number2
+                    ))
                 }
             }
             _ => Err("Can only divide integers.".to_string()),
@@ -115,19 +127,25 @@ impl Mul for RBasicValue {
             (RBasicValue::Number(number1), RBasicValue::String(string2)) => {
                 let number2 = i32::from_str(string2.as_str());
 
-                if number2.is_ok() {
-                    Ok(RBasicValue::Number(number1 * number2.unwrap()))
+                if let Result::Ok(number2_value) = number2 {
+                    Ok(RBasicValue::Number(number1 * number2_value))
                 } else {
-                    Err(format!("Cannot multiply integer {} and string {}", number1, string2))
+                    Err(format!(
+                        "Cannot multiply integer {} and string {}",
+                        number1, string2
+                    ))
                 }
             }
             (RBasicValue::String(string1), RBasicValue::Number(number2)) => {
                 let number1 = i32::from_str(string1.as_str());
 
-                if number1.is_ok() {
-                    Ok(RBasicValue::Number(number1.unwrap() * number2))
+                if let Result::Ok(number1_value) = number1 {
+                    Ok(RBasicValue::Number(number1_value * number2))
                 } else {
-                    Err(format!("Cannot multiply string {} and integer {}", string1, number2))
+                    Err(format!(
+                        "Cannot multiply string {} and integer {}",
+                        string1, number2
+                    ))
                 }
             }
             _ => Err("Can only multiply integers.".to_string()),
@@ -146,23 +164,25 @@ impl Sub for RBasicValue {
             (RBasicValue::Number(number1), RBasicValue::String(string2)) => {
                 let number2 = i32::from_str(string2.as_str());
 
-                if number2.is_ok() {
-                    Ok(RBasicValue::Number(number1 - number2.unwrap()))
+                if let Result::Ok(number2_value) = number2 {
+                    Ok(RBasicValue::Number(number1 - number2_value))
                 } else {
-                    Err(format!("Cannot subtract integer {} from string {}",
-                                number1,
-                                string2))
+                    Err(format!(
+                        "Cannot subtract integer {} from string {}",
+                        number1, string2
+                    ))
                 }
             }
             (RBasicValue::String(string1), RBasicValue::Number(number2)) => {
                 let number1 = i32::from_str(string1.as_str());
 
-                if number1.is_ok() {
-                    Ok(RBasicValue::Number(number1.unwrap() - number2))
+                if let Result::Ok(number1_value) = number1 {
+                    Ok(RBasicValue::Number(number1_value - number2))
                 } else {
-                    Err(format!("Cannot subtract string {} from integer {}",
-                                string1,
-                                number2))
+                    Err(format!(
+                        "Cannot subtract string {} from integer {}",
+                        string1, number2
+                    ))
                 }
             }
             _ => Err("Can only subtract integers.".to_string()),
@@ -185,26 +205,31 @@ impl RBasicValue {
             (&RBasicValue::Number(number1), &RBasicValue::String(ref string2)) => {
                 let number2 = i32::from_str(string2.as_str());
 
-                if number2.is_ok() {
-                    Ok(number1 == number2.unwrap())
+                if let Result::Ok(number2_value) = number2 {
+                    Ok(number1 == number2_value)
                 } else {
-                    Err(format!("Cannot compare integer {} from string {}", number1, string2))
+                    Err(format!(
+                        "Cannot compare integer {} from string {}",
+                        number1, string2
+                    ))
                 }
             }
             (&RBasicValue::String(ref string1), &RBasicValue::Number(number2)) => {
                 let number1 = i32::from_str(string1.as_str());
 
-                if number1.is_ok() {
-                    Ok(number1.unwrap() == number2)
+                if let Result::Ok(number1_value) = number1 {
+                    Ok(number1_value == number2)
                 } else {
-                    Err(format!("Cannot compare string {} and integer {}", string1, number2))
+                    Err(format!(
+                        "Cannot compare string {} and integer {}",
+                        string1, number2
+                    ))
                 }
             }
-            _ => {
-                Err(format!("Cannot compare values of different types {:?} and {:?}",
-                            *self,
-                            *other))
-            }
+            _ => Err(format!(
+                "Cannot compare values of different types {:?} and {:?}",
+                *self, *other
+            )),
         }
     }
 
@@ -222,26 +247,31 @@ impl RBasicValue {
             (&RBasicValue::Number(number1), &RBasicValue::String(ref string2)) => {
                 let number2 = i32::from_str(string2.as_str());
 
-                if number2.is_ok() {
-                    Ok(number1 < number2.unwrap())
+                if let Result::Ok(number2_value) = number2 {
+                    Ok(number1 < number2_value)
                 } else {
-                    Err(format!("Cannot compare integer {} from string {}", number1, string2))
+                    Err(format!(
+                        "Cannot compare integer {} from string {}",
+                        number1, string2
+                    ))
                 }
             }
             (&RBasicValue::String(ref string1), &RBasicValue::Number(number2)) => {
                 let number1 = i32::from_str(string1.as_str());
 
-                if number1.is_ok() {
-                    Ok(number1.unwrap() < number2)
+                if let Result::Ok(number1_value) = number1 {
+                    Ok(number1_value < number2)
                 } else {
-                    Err(format!("Cannot compare string {} and integer {}", string1, number2))
+                    Err(format!(
+                        "Cannot compare string {} and integer {}",
+                        string1, number2
+                    ))
                 }
             }
-            _ => {
-                Err(format!("Cannot compare values of different types {:?} and {:?}",
-                            *self,
-                            *other))
-            }
+            _ => Err(format!(
+                "Cannot compare values of different types {:?} and {:?}",
+                *self, *other
+            )),
         }
     }
 
@@ -251,30 +281,35 @@ impl RBasicValue {
             (&RBasicValue::String(ref string1), &RBasicValue::String(ref string2)) => {
                 Ok(string1 > string2)
             }
-            (&RBasicValue::Bool(bool1), &RBasicValue::Bool(bool2)) => Ok(bool1 > bool2),
+            (&RBasicValue::Bool(bool1), &RBasicValue::Bool(bool2)) => Ok(bool1 && !bool2),
             (&RBasicValue::Number(number1), &RBasicValue::String(ref string2)) => {
                 let number2 = i32::from_str(string2.as_str());
 
-                if number2.is_ok() {
-                    Ok(number1 > number2.unwrap())
+                if let Result::Ok(number2_value) = number2 {
+                    Ok(number1 > number2_value)
                 } else {
-                    Err(format!("Cannot compare integer {} from string {}", number1, string2))
+                    Err(format!(
+                        "Cannot compare integer {} from string {}",
+                        number1, string2
+                    ))
                 }
             }
             (&RBasicValue::String(ref string1), &RBasicValue::Number(number2)) => {
                 let number1 = i32::from_str(string1.as_str());
 
-                if number1.is_ok() {
-                    Ok(number1.unwrap() > number2)
+                if let Result::Ok(number1_value) = number1 { 
+                    Ok(number1_value > number2)
                 } else {
-                    Err(format!("Cannot compare string {} and integer {}", string1, number2))
+                    Err(format!(
+                        "Cannot compare string {} and integer {}",
+                        string1, number2
+                    ))
                 }
             }
-            _ => {
-                Err(format!("Cannot compare values of different types {:?} and {:?}",
-                            *self,
-                            *other))
-            }
+            _ => Err(format!(
+                "Cannot compare values of different types {:?} and {:?}",
+                *self, *other
+            )),
         }
     }
 
