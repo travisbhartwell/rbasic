@@ -39,6 +39,12 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
     let mut line_has_goto = false;
 
     loop {
+
+        // If we're at the end of the program then we stop
+        if line_index == num_lines {
+               break;
+        }
+
         let line_number = line_numbers[line_index];
         let tokens = &lineno_to_code[line_number];
         let mut token_iter = tokens.iter().peekable();
