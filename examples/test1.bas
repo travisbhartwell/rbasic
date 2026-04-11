@@ -5,6 +5,7 @@
 50 PRINT 3 + 4 * 2 / ( 1 - 5 )
 60 PRINT ( 3 + 4 ) * ( 5 - 1  )
 65 PRINT (3 + 4) * (5 - 1)
+67 PRINT (3 + 4) % (5 - 1)
 70 IF X > Y THEN 90
 80 PRINT "Y IS GREATER"
 85 GOTO 100

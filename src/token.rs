@@ -4,8 +4,9 @@ pub enum Token {
 
     // Variables and Literals
     Variable(String),
-    Number(i32),
+    Number(f64),
     BString(String),
+    BuiltInFn(BuiltInFunction),
 
     // Binary Operators
     Equals,
@@ -16,6 +17,7 @@ pub enum Token {
     NotEqual,
     Multiply,
     Divide,
+    Modulus,
     Minus,
     Plus,
 
@@ -38,6 +40,29 @@ pub enum Token {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum BuiltInFunction {
+    Sin,
+    Cos,
+    Tan,
+    Asin,
+    Acos,
+    Atan,
+    Sqrt,
+    Abs,
+    Log,
+    Exp,
+    Floor,
+    Ceil,
+    Round,
+    Rand,
+    Num,
+    Str,
+    Len,
+    Chr,
+    Asc,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Associativity {
     Left,
     Right,
@@ -54,6 +79,7 @@ impl Token {
             "<>" => Some(Token::NotEqual),
             "*" => Some(Token::Multiply),
             "/" => Some(Token::Divide),
+            "%" => Some(Token::Modulus),
             // Yes, this is also Token::UMinus
             "-" => Some(Token::Minus),
             "+" => Some(Token::Plus),
@@ -67,6 +93,25 @@ impl Token {
             "PRINT" => Some(Token::Print),
             "REM" => Some(Token::Rem),
             "THEN" => Some(Token::Then),
+            "SIN" => Some(Token::BuiltInFn(BuiltInFunction::Sin)),
+            "COS" => Some(Token::BuiltInFn(BuiltInFunction::Cos)),
+            "TAN" => Some(Token::BuiltInFn(BuiltInFunction::Tan)),
+            "ASIN" => Some(Token::BuiltInFn(BuiltInFunction::Asin)),
+            "ACOS" => Some(Token::BuiltInFn(BuiltInFunction::Acos)),
+            "ATAN" => Some(Token::BuiltInFn(BuiltInFunction::Atan)),
+            "SQRT" => Some(Token::BuiltInFn(BuiltInFunction::Sqrt)),
+            "ABS" => Some(Token::BuiltInFn(BuiltInFunction::Abs)),
+            "LOG" => Some(Token::BuiltInFn(BuiltInFunction::Log)),
+            "EXP" => Some(Token::BuiltInFn(BuiltInFunction::Exp)),
+            "FLOOR" => Some(Token::BuiltInFn(BuiltInFunction::Floor)),
+            "CEIL" => Some(Token::BuiltInFn(BuiltInFunction::Ceil)),
+            "ROUND" => Some(Token::BuiltInFn(BuiltInFunction::Round)),
+            "RAND" => Some(Token::BuiltInFn(BuiltInFunction::Rand)),
+            "NUM" => Some(Token::BuiltInFn(BuiltInFunction::Num)),
+            "STR" => Some(Token::BuiltInFn(BuiltInFunction::Str)),
+            "LEN" => Some(Token::BuiltInFn(BuiltInFunction::Len)),
+            "CHR" => Some(Token::BuiltInFn(BuiltInFunction::Chr)),
+            "ASC" => Some(Token::BuiltInFn(BuiltInFunction::Asc)),
             _ => None,
         }
     }
@@ -75,7 +120,7 @@ impl Token {
         match *self {
             Token::Equals | Token::LessThan | Token::GreaterThan | Token::LessThanEqual |
             Token::GreaterThanEqual | Token::NotEqual | Token::Multiply | Token::Divide |
-            Token::Minus | Token::Plus | Token::UMinus | Token::Bang => true,
+            Token::Modulus | Token::Minus | Token::Plus | Token::UMinus | Token::Bang => true,
             _ => false,
         }
     }
@@ -103,7 +148,8 @@ impl Token {
         match *self {
             Token::Variable(_) |
             Token::Number(_) |
-            Token::BString(_) => true,
+            Token::BString(_) |
+            Token::BuiltInFn(_) => true,
             _ => false,
         }
     }
@@ -115,7 +161,7 @@ impl Token {
 
         match *self {
             Token::UMinus | Token::Bang => Ok(12),
-            Token::Multiply | Token::Divide => Ok(10),
+            Token::Multiply | Token::Divide | Token::Modulus => Ok(10),
             Token::Minus | Token::Plus => Ok(8),
             _ => Ok(4),
         }

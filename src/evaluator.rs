@@ -1,4 +1,5 @@
 use crate::lexer;
+use crate::lexer::LineNumber;
 use crate::token;
 use crate::value;
 
@@ -8,6 +9,9 @@ use std::collections::VecDeque;
 use std::io;
 use std::iter::Peekable;
 use std::slice::Iter;
+use std::str::FromStr;
+
+use rand::RngExt;
 
 #[derive(Debug)]
 struct RBasicContext {
@@ -22,34 +26,39 @@ impl RBasicContext {
     }
 }
 
+pub fn get_line_map<'a>(
+    code_lines: &'a [lexer::LineOfCode],
+    btree: &mut BTreeMap<LineNumber, &'a lexer::LineOfCode>,
+) {
+    for line in code_lines {
+        btree.insert(line.line_number.clone(), line);
+    }
+}
+
 pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
     let mut context = RBasicContext::new();
-    let mut lineno_to_code = BTreeMap::new();
     let mut line_map = BTreeMap::new();
 
-    for (index, line) in code_lines.iter().enumerate() {
-        line_map.insert(&line.line_number, index);
-        lineno_to_code.insert(&line.line_number, &line.tokens);
-    }
+    get_line_map(&code_lines, &mut line_map);
 
-    let line_numbers: Vec<_> = line_map.keys().clone().collect();
-    let num_lines = line_numbers.len();
-    let mut line_index = 0;
     // TODO: Feels hacky
     let mut line_has_goto = false;
 
+    // Start from the first line in the BTreeMap
+    let mut current_line_number = match line_map.keys().next() {
+        Some(n) => *n,
+        None => return Ok("Completed Successfully".to_string()),
+    };
+
     loop {
-
-        // If we're at the end of the program then we stop
-        if line_index == num_lines {
-               break;
-        }
-
-        let line_number = line_numbers[line_index];
-        let tokens = &lineno_to_code[line_number];
+        let line = match line_map.get(&current_line_number) {
+            Some(l) => l,
+            None => break,
+        };
+        let tokens = &line.tokens;
         let mut token_iter = tokens.iter().peekable();
 
-        // println!("Looking at line: {:?}", line_number);
+        // println!("Looking at line: {:?}", current_line_number);
         if !tokens.is_empty() {
             let lexer::TokenAndPos(pos, ref token) = *token_iter.next().unwrap();
             // Set default value
@@ -64,13 +73,13 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
                     line_has_goto = true;
                     match token_iter.next() {
                         Some(&lexer::TokenAndPos(pos, token::Token::Number(number))) => {
-                            let n = lexer::LineNumber(number as u32);
+                            let n = number as u32;
                             match line_map.get(&n) {
-                                Some(index) => line_index = *index,
+                                Some(_target_line) => current_line_number = n,
                                 _ => {
                                     return Err(format!(
                                         "At {:?}, {} invalid target line for GOTO",
-                                        line_number, pos
+                                        line.line_number, pos
                                     ))
                                 }
                             }
@@ -79,14 +88,14 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
                             return Err(format!(
                                 "At {:?}, {} GOTO must be followed by valid line \
                                                 number",
-                                line_number, pos
+                                line.line_number, pos
                             ));
                         }
                         None => {
                             return Err(format!(
                                 "At {:?}, {} GOTO must be followed by a line \
                                                 number",
-                                line_number,
+                                line.line_number,
                                 // Adding 4 to give the position past GOTO
                                 pos + 4
                             ));
@@ -114,13 +123,13 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
                         (_, _, Err(e)) => {
                             return Err(format!(
                                 "At {:?}, {} error in LET expression: {}",
-                                line_number, pos, e
+                                line.line_number, pos, e
                             ))
                         }
                         _ => {
                             return Err(format!(
                                 "At {:?}, {} invalid syntax for LET.",
-                                line_number, pos
+                                line.line_number, pos
                             ));
                         }
                     }
@@ -137,7 +146,7 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
                             return Err(format!(
                                 "At {:?}. {} PRINT must be followed by valid \
                                                 expression",
-                                line_number, pos
+                                line.line_number, pos
                             ))
                         }
                     }
@@ -156,17 +165,14 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
 
                             // Store the string now, can coerce to number later if needed
                             // Can overwrite an existing value
-                            context
-                                .variables
-                                .entry(variable.clone().to_string())
-                                .or_insert(value);
+                            context.variables.insert(variable.clone().to_string(), value);
                         }
 
                         _ => {
                             return Err(format!(
                                 "At {:?}, {} INPUT must be followed by a \
                                                 variable name",
-                                line_number,
+                                line.line_number,
                                 // Adding 5 to put position past INPUT
                                 pos + 5
                             ));
@@ -190,14 +196,14 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
                         ) => {
                             if *value {
                                 line_has_goto = true;
-                                let n = lexer::LineNumber(*number as u32);
+                                let n = *number as u32;
                                 match line_map.get(&n) {
-                                    Some(index) => line_index = *index,
+                                    Some(_target_line) => current_line_number = n,
                                     _ => {
                                         return Err(format!(
                                             "At {:?}, {} invalid target line for \
                                                             IF",
-                                            line_number, pos
+                                            line.line_number, pos
                                         ))
                                     }
                                 }
@@ -206,14 +212,14 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
                         _ => {
                             return Err(format!(
                                 "At {:?}, {}, invalid syntax for IF.",
-                                line_number, pos
+                                line.line_number, pos
                             ));
                         }
                     }
                 }
 
                 _ => {
-                    return Err(format!("At {:?}, {} invalid syntax", line_number, pos));
+                    return Err(format!("At {:?}, {} invalid syntax", line.line_number, pos));
                 }
             }
         }
@@ -222,10 +228,11 @@ pub fn evaluate(code_lines: Vec<lexer::LineOfCode>) -> Result<String, String> {
         // println!("Current context: {:?}", context);
 
         if !line_has_goto {
-            line_index += 1;
-            if line_index == num_lines {
-                break;
-            }
+            // Move to the next line number in the BTreeMap
+            current_line_number = match line_map.range((current_line_number + 1)..).next() {
+                Some((&next_line_number, _)) => next_line_number,
+                None => break,
+            };
         }
     }
 
@@ -245,8 +252,12 @@ fn parse_expression(
         }
 
         match token_iter.next() {
-            Some(&lexer::TokenAndPos(_, ref value_token)) if value_token.is_value() => {
+            Some(&lexer::TokenAndPos(_, ref value_token)) if value_token.is_value() && !matches!(value_token, token::Token::BuiltInFn(_)) => {
                 output_queue.push_back(value_token.clone())
+            }
+            Some(&lexer::TokenAndPos(_, token::Token::BuiltInFn(ref func))) => {
+                // Push built-in function to operator stack for function call handling
+                operator_stack.push(token::Token::BuiltInFn(func.clone()));
             }
             Some(&lexer::TokenAndPos(_, ref op_token)) if op_token.is_operator() => {
                 if !operator_stack.is_empty() {
@@ -277,7 +288,10 @@ fn parse_expression(
                     None => return Err("Mismatched parenthesis in expression".to_string()),
                 }
             },
-            _ => unreachable!(),
+            Some(&lexer::TokenAndPos(_, ref tok)) => {
+                return Err(format!("Unexpected token {:?} in expression", tok))
+            }
+            None => break,
         }
     }
 
@@ -373,6 +387,7 @@ fn parse_and_eval_expression<'a>(
                                 token::Token::Minus => operand1 - operand2,
                                 token::Token::Multiply => operand1 * operand2,
                                 token::Token::Divide => operand1 / operand2,
+                                token::Token::Modulus => operand1 % operand2,
                                 // Pattern guard prevents any other match
                                 _ => unreachable!(),
                             };
@@ -382,15 +397,151 @@ fn parse_and_eval_expression<'a>(
                             }
                         }
                     }
+                    Some(token::Token::BuiltInFn(ref func)) => {
+                        if stack.len() < 1 {
+                            return Err(format!("Function {:?} requires an argument", func));
+                        }
+                        let arg = stack.pop().unwrap();
+
+                        let result = match func {
+                            // Numeric functions
+                            token::BuiltInFunction::Sin => match arg {
+                                value::RBasicValue::Number(n) => Ok(value::RBasicValue::Number(n.sin())),
+                                _ => Err(format!("SIN requires a numeric argument")),
+                            },
+                            token::BuiltInFunction::Cos => match arg {
+                                value::RBasicValue::Number(n) => Ok(value::RBasicValue::Number(n.cos())),
+                                _ => Err(format!("COS requires a numeric argument")),
+                            },
+                            token::BuiltInFunction::Tan => match arg {
+                                value::RBasicValue::Number(n) => Ok(value::RBasicValue::Number(n.tan())),
+                                _ => Err(format!("TAN requires a numeric argument")),
+                            },
+                            token::BuiltInFunction::Asin => match arg {
+                                value::RBasicValue::Number(n) => Ok(value::RBasicValue::Number(n.asin())),
+                                _ => Err(format!("ASIN requires a numeric argument")),
+                            },
+                            token::BuiltInFunction::Acos => match arg {
+                                value::RBasicValue::Number(n) => Ok(value::RBasicValue::Number(n.acos())),
+                                _ => Err(format!("ACOS requires a numeric argument")),
+                            },
+                            token::BuiltInFunction::Atan => match arg {
+                                value::RBasicValue::Number(n) => Ok(value::RBasicValue::Number(n.atan())),
+                                _ => Err(format!("ATAN requires a numeric argument")),
+                            },
+                            token::BuiltInFunction::Sqrt => match arg {
+                                value::RBasicValue::Number(n) => Ok(value::RBasicValue::Number(n.sqrt())),
+                                _ => Err(format!("SQRT requires a numeric argument")),
+                            },
+                            token::BuiltInFunction::Abs => match arg {
+                                value::RBasicValue::Number(n) => Ok(value::RBasicValue::Number(n.abs())),
+                                _ => Err(format!("ABS requires a numeric argument")),
+                            },
+                            token::BuiltInFunction::Log => match arg {
+                                value::RBasicValue::Number(n) => Ok(value::RBasicValue::Number(n.ln())),
+                                _ => Err(format!("LOG requires a numeric argument")),
+                            },
+                            token::BuiltInFunction::Exp => match arg {
+                                value::RBasicValue::Number(n) => Ok(value::RBasicValue::Number(n.exp())),
+                                _ => Err(format!("EXP requires a numeric argument")),
+                            },
+                            token::BuiltInFunction::Floor => match arg {
+                                value::RBasicValue::Number(n) => Ok(value::RBasicValue::Number(n.floor())),
+                                _ => Err(format!("FLOOR requires a numeric argument")),
+                            },
+                            token::BuiltInFunction::Ceil => match arg {
+                                value::RBasicValue::Number(n) => Ok(value::RBasicValue::Number(n.ceil())),
+                                _ => Err(format!("CEIL requires a numeric argument")),
+                            },
+                            token::BuiltInFunction::Round => match arg {
+                                value::RBasicValue::Number(n) => Ok(value::RBasicValue::Number(n.round())),
+                                _ => Err(format!("ROUND requires a numeric argument")),
+                            },
+                            token::BuiltInFunction::Rand => match arg {
+                                value::RBasicValue::Number(n) => {
+                                    if n.fract() != 0.0 {
+                                        return Err("RAND requires an integer argument".to_string());
+                                    }
+
+                                    if n < 0.0 {
+                                        return Err("RAND requires a non-negative integer".to_string());
+                                    }
+
+                                    Ok(value::RBasicValue::Number(
+                                        rand::rng().random_range(0..=n as i64) as f64
+                                    ))
+                                }
+                                _ => Err(format!("RAND requires a numeric argument")),
+                            },
+                            token::BuiltInFunction::Num => match arg {
+                                value::RBasicValue::Number(n) => Ok(value::RBasicValue::Number(n)),
+                                value::RBasicValue::String(s) => {
+                                    match f64::from_str(&s) {
+                                        Ok(n) => Ok(value::RBasicValue::Number(n)),
+                                        Err(_) => Err(format!("NUM: cannot parse '{}' as a number", s)),
+                                    }
+                                }
+                                value::RBasicValue::Bool(b) => {
+                                    Ok(value::RBasicValue::Number(if b { 1.0 } else { 0.0 }))
+                                }
+                            },
+                            token::BuiltInFunction::Str => match arg {
+                                value::RBasicValue::Number(n) => {
+                                    // Remove trailing zeros for cleaner output
+                                    if n.fract() == 0.0 && n.abs() < 1e15 {
+                                        Ok(value::RBasicValue::String((n as i64).to_string()))
+                                    } else {
+                                        Ok(value::RBasicValue::String(n.to_string()))
+                                    }
+                                }
+                                value::RBasicValue::String(s) => {
+                                    Ok(value::RBasicValue::String(s))
+                                }
+                                value::RBasicValue::Bool(b) => {
+                                    Ok(value::RBasicValue::String(
+                                        if b { "true".to_string() } else { "false".to_string() }
+                                    ))
+                                }
+                            },
+                            // String functions
+                            token::BuiltInFunction::Len => match arg {
+                                value::RBasicValue::String(s) => Ok(value::RBasicValue::Number(s.len() as f64)),
+                                _ => Err(format!("LEN requires a string argument")),
+                            },
+                            token::BuiltInFunction::Chr => match arg {
+                                value::RBasicValue::Number(n) => {
+                                    let ch = std::char::from_u32(n as u32)
+                                        .ok_or_else(|| format!("CHR: invalid character code {}", n))?;
+                                    Ok(value::RBasicValue::String(ch.to_string()))
+                                },
+                                _ => Err(format!("CHR requires a numeric argument")),
+                            },
+                            token::BuiltInFunction::Asc => match arg {
+                                value::RBasicValue::String(s) => {
+                                    let code = s.chars().next()
+                                        .map(|c| c as u32 as f64)
+                                        .ok_or_else(|| "ASC: empty string".to_string())?;
+                                    Ok(value::RBasicValue::Number(code))
+                                },
+                                _ => Err(format!("ASC requires a string argument")),
+                            },
+                        };
+
+                        match result {
+                            Ok(value) => stack.push(value),
+                            Err(e) => return Err(e),
+                        }
+                    }
                     None => unreachable!(),
                     _ => unreachable!(),
                 }
             }
 
-            // If expression is well formed, there will only be the result on the stack
-            assert!(stack.len() == 1);
-            // println!("Final expression result: {:?}", stack[0]);
-            Ok(stack[0].clone())
+            if stack.len() == 1 {
+                Ok(stack.pop().unwrap())
+            } else {
+                Err("Invalid expression: unbalanced operands and operators".to_string())
+            }
         }
 
         _ => Err("Invalid expression!".to_string()),

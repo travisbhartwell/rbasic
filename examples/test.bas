@@ -2,7 +2,7 @@
 20 PRINT "What is your name?"
 30 INPUT NAME
 40 PRINT "Hello, " + NAME
-50 LET VALUE = -1
+50 LET VALUE = -.1
 60 PRINT "The value is: "
 70 PRINT VALUE
 75 LET VALUE2 = -VALUE
